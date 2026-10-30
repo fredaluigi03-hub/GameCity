@@ -150,8 +150,9 @@ export default {
 
     const boardFace = new THREE.Mesh(
       new THREE.PlaneGeometry(8.0, 5.0),
-      new THREE.MeshStandardMaterial({ map: tbTex, roughness: 0.45, metalness: 0.08 })
+      new THREE.MeshBasicMaterial({ map: tbTex, color: new THREE.Color(0.84, 0.84, 0.84), toneMapped: false })
     );
+    boardFace.userData.noShadow = true;
     boardFace.position.z = 0.126;
     tabelloneGroup.add(boardFace);
 
@@ -179,10 +180,10 @@ export default {
     // Funzione di rendering del Tabellone 2D su CanvasTexture
     function drawTabelloneTexture() {
       const W = tbCanvas.width, H = tbCanvas.height;
-      // Sfondo pergamenato caldo vintage
+      // Sfondo pergamenato caldo vintage anti-riflesso
       const bgGrad = tbCtx.createLinearGradient(0, 0, W, H);
-      bgGrad.addColorStop(0, '#fbf8f0');
-      bgGrad.addColorStop(1, '#eee2cc');
+      bgGrad.addColorStop(0, '#e5dac3');
+      bgGrad.addColorStop(1, '#d5c5a8');
       tbCtx.fillStyle = bgGrad;
       tbCtx.fillRect(0, 0, W, H);
 
@@ -283,7 +284,7 @@ export default {
 
       const capTex = new THREE.CanvasTexture(capCanvas);
       capTex.colorSpace = THREE.SRGBColorSpace;
-      const tokenCapMat = new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.32, metalness: 0.05 });
+      const tokenCapMat = new THREE.MeshBasicMaterial({ map: capTex, color: new THREE.Color(0.86, 0.86, 0.86), toneMapped: false });
 
       return new THREE.Mesh(tokenGeo, [tokenSideMat, tokenCapMat, tokenCapMat]);
     }

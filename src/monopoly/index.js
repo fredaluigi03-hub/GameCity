@@ -231,11 +231,11 @@ function createDieFaceMaterial(n) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = 128;
   const cx = cv.getContext('2d');
-  cx.fillStyle = '#f8fafc';
+  cx.fillStyle = '#e2ddd0';
   cx.fillRect(0, 0, 128, 128);
-  cx.strokeStyle = '#cbd5e1';
-  cx.lineWidth = 6;
-  cx.strokeRect(3, 3, 122, 122);
+  cx.strokeStyle = '#334155';
+  cx.lineWidth = 8;
+  cx.strokeRect(4, 4, 120, 120);
 
   const pips = {
     1: [[64, 64]],
@@ -246,15 +246,15 @@ function createDieFaceMaterial(n) {
     6: [[34, 28], [94, 28], [34, 64], [94, 64], [34, 100], [94, 100]]
   }[n] || [[64, 64]];
 
-  cx.fillStyle = n === 1 || n === 4 ? '#dc2626' : '#0f172a';
+  cx.fillStyle = n === 1 || n === 4 ? '#b91c1c' : '#090d16';
   for (const [px, py] of pips) {
     cx.beginPath();
-    cx.arc(px, py, n === 1 ? 16 : 11, 0, Math.PI * 2);
+    cx.arc(px, py, n === 1 ? 18 : 13, 0, Math.PI * 2);
     cx.fill();
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.08 });
+  return new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(0.86, 0.86, 0.86), toneMapped: false });
 }
 
 // BoxGeometry face order: 0:+X(2), 1:-X(5), 2:+Y(1), 3:-Y(6), 4:+Z(3), 5:-Z(4)
@@ -284,14 +284,14 @@ function createMonopolyBoardTexture() {
   const CW = CORNER_W * U;  // ~315 px
   const PW = 0.8 * U;       // ~157.5 px
 
-  // Classic mint-cream board background
-  cx.fillStyle = '#dce8dc';
+  // Classic matte board background (no glare)
+  cx.fillStyle = '#c9c2ae';
   cx.fillRect(0, 0, S, S);
 
   // Inner playing square
-  cx.fillStyle = '#0f241d';
+  cx.fillStyle = '#091913';
   cx.fillRect(CW, CW, S - 2 * CW, S - 2 * CW);
-  cx.strokeStyle = '#d8b45a';
+  cx.strokeStyle = '#b89548';
   cx.lineWidth = 6;
   cx.strokeRect(CW + 8, CW + 8, S - 2 * CW - 16, S - 2 * CW - 16);
 
@@ -332,10 +332,10 @@ function createMonopolyBoardTexture() {
 
   // Helper to draw each of the 40 spaces
   function drawTileContent(c, idx, w, h) {
-    cx.fillStyle = '#f3f1e6';
+    cx.fillStyle = '#d8d0bc';
     cx.fillRect(-w / 2, -h / 2, w, h);
-    cx.strokeStyle = '#1e293b';
-    cx.lineWidth = 4;
+    cx.strokeStyle = '#0f172a';
+    cx.lineWidth = 5;
     cx.strokeRect(-w / 2, -h / 2, w, h);
 
     const name = c.itName || c.name;
@@ -515,16 +515,16 @@ export default {
     goldTrim.position.y = Y_TABLE;
     tableGroup.add(pedBase, pedCol, tableRim, goldTrim);
 
-    // 3D Monopoly Board Slab
+    // 3D Monopoly Board Slab (anti-glare matte surface so text is 100% readable)
     const boardTex = createMonopolyBoardTexture();
-    const boardTopMat = new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.28, metalness: 0.06 });
-    const boardSideMat = mat('#14201b', { roughness: 0.5, metalness: 0.3 });
+    const boardTopMat = new THREE.MeshBasicMaterial({ map: boardTex, color: new THREE.Color(0.82, 0.82, 0.82), toneMapped: false });
+    const boardSideMat = mat('#14201b', { roughness: 0.6, metalness: 0.2 });
     const boardMesh = new THREE.Mesh(
       new THREE.BoxGeometry(BOARD_SIZE, 0.12, BOARD_SIZE),
       [boardSideMat, boardSideMat, boardTopMat, boardSideMat, boardSideMat, boardSideMat]
     );
     boardMesh.position.y = Y_BOARD - 0.06;
-    boardMesh.receiveShadow = true;
+    boardMesh.userData.noShadow = true;
     tableGroup.add(boardMesh);
 
     // 3D Probabilità & Imprevisti Card Decks on Board
@@ -532,9 +532,9 @@ export default {
       const dg = new THREE.Group();
       dg.position.set(x, Y_BOARD, z);
       dg.rotation.y = rotY;
-      const stack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.12, 0.76), mat('#f8fafc', { roughness: 0.5 }));
+      const stack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.12, 0.76), mat('#94a3b8', { roughness: 0.75, metalness: 0.05 }));
       stack.position.y = 0.06;
-      const topCard = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.02, 0.77), mat(col, { roughness: 0.3, metalness: 0.2 }));
+      const topCard = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.02, 0.77), mat(col, { roughness: 0.55, metalness: 0.1 }));
       topCard.position.y = 0.125;
       dg.add(stack, topCard);
       tableGroup.add(dg);
@@ -823,6 +823,14 @@ export default {
         </div>`;
       }
 
+      const isBuyable = c.type === 'property' || c.type === 'railroad' || c.type === 'utility';
+      const statusLabel = !isBuyable
+        ? 'Casella Speciale'
+        : owner
+          ? `${esc(owner.name)}${isMort ? ' (IPOTECATA)' : level === 5 ? ' · 🏨 HOTEL' : level > 0 ? ` · ${'🏠'.repeat(level)}` : ''}`
+          : 'Libera in vendita';
+      const statusCol = !isBuyable ? '#94a3b8' : owner ? owner.color : '#4ade80';
+
       return `
         <div class="deedCard3D">
           <div class="deedHeader" style="background:${hdrCol}">
@@ -832,7 +840,7 @@ export default {
           <div class="deedBody">
             <div class="deedRow">
               <span>Stato</span>
-              <b style="color:${owner ? owner.color : '#4ade80'}">${owner ? `${esc(owner.name)}${isMort ? ' (IPOTECATA)' : level === 5 ? ' · 🏨 HOTEL' : level > 0 ? ` · ${'🏠'.repeat(level)}` : ''}` : 'Libera in vendita'}</b>
+              <b style="color:${statusCol}">${statusLabel}</b>
             </div>
             ${bodyHtml}
             ${actionsHtml}

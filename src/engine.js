@@ -28,7 +28,7 @@ const canvas = hasBrowser ? document.getElementById('gl') : null;
 const renderer = hasBrowser ? new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'}) : null;
 if (renderer) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = .92;
+  renderer.toneMappingExposure = .75;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 }
 let low = (() => {
@@ -47,7 +47,7 @@ if (renderer) {
 }
 const composer = hasBrowser ? new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, {type: THREE.HalfFloatType, samples: 0})) : null;
 const pass = hasBrowser ? new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera()) : null;
-const bloom = hasBrowser ? new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .15, .32, .98) : null; // subtle studio bloom, no excessive yellow glow
+const bloom = hasBrowser ? new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .06, .28, 1.18) : null; // subtle studio bloom, no glare on boards/dice
 if (composer) {
   composer.addPass(pass); composer.addPass(bloom); composer.addPass(new OutputPass());
 }
@@ -259,11 +259,11 @@ function buildStudio(S, withFloor) {
   const ac1 = '#' + S.c1.getHexString(), ac2 = '#' + S.c2.getHexString();
   scene.add(new THREE.AmbientLight('#1b2142', .15));
   scene.add(new THREE.HemisphereLight('#ffeacc', '#0a0e22', .3));
-  // key + fill (only the key casts shadows)
-  const key = new THREE.SpotLight('#ffefd6', 300, 50, .62, .55, 1.6); key.position.set(4, 13, 11);
+  // key + fill (only the key casts shadows) — balanced studio intensity without tabletop glare
+  const key = new THREE.SpotLight('#ffefd6', 135, 50, .68, .68, 1.6); key.position.set(4, 13, 11);
   key.target.position.set(0, 1, 0); scene.add(key, key.target);
   if (!low) { key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -.0004; key.shadow.normalBias = .02; key.shadow.camera.near = 4; key.shadow.camera.far = 40; }
-  const fill = new THREE.SpotLight('#cfd8ff', 90, 50, .7, .8, 1.6); fill.position.set(-7, 8, 10); fill.target.position.set(0, 1.5, 0); scene.add(fill, fill.target);
+  const fill = new THREE.SpotLight('#cfd8ff', 50, 50, .75, .85, 1.6); fill.position.set(-7, 8, 10); fill.target.position.set(0, 1.5, 0); scene.add(fill, fill.target);
   const rim1 = new THREE.PointLight(S.c1, 25, 30); rim1.position.set(-8, 4, -4);
   const rim2 = new THREE.PointLight(S.c2, 25, 30); rim2.position.set(8, 4, -4);
   scene.add(rim1, rim2);
