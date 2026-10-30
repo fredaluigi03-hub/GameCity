@@ -29,7 +29,8 @@ export function canBuild(state, index, owner = state.current) {
   const cell = BOARD[index], group = groupFor(index);
   if (!group || state.owners[index] !== owner || !groupOwned(state, owner, group) || GROUPS[group].some(i => state.mortgages.has(i))) return false;
   const ids = GROUPS[group], levels = ids.map(i => state.houses[i] || 0), level = state.houses[index] || 0;
-  return level < 5 && Math.min(...levels) === level && (level < 4 ? state.bank.houses > 0 : state.bank.hotels > 0) && state.players[owner].cash >= cell.house;
+  const pCash = state.players[owner]?.cash ?? state.players[owner]?.data?.cash ?? 0;
+  return level < 5 && Math.min(...levels) === level && (level < 4 ? state.bank.houses > 0 : state.bank.hotels > 0) && pCash >= (cell.house || cell.houseCost || 50);
 }
 export function canSell(state, index, owner = state.current) {
   const group = groupFor(index); if (!group || state.owners[index] !== owner) return false;
@@ -39,7 +40,13 @@ export function canSell(state, index, owner = state.current) {
 export const mortgageValue = index => Math.floor(BOARD[index].price / 2);
 export const unmortgageCost = index => Math.round(mortgageValue(index) * 1.1);
 export function netWorth(state, owner) {
-  return (state.players[owner]?.cash || 0) + ownedBy(state, owner).reduce((sum, i) => sum + mortgageValue(i) + (state.houses[i] || 0) * BOARD[i].house / 2, 0);
+  const pCash = state.players[owner]?.cash ?? state.players[owner]?.data?.cash ?? 0;
+  return pCash + ownedBy(state, owner).reduce((sum, i) => {
+    const isMort = state.mortgages?.has ? state.mortgages.has(i) : false;
+    const propVal = isMort ? 0 : mortgageValue(i);
+    const houseVal = (state.houses[i] || 0) * (BOARD[i].house || BOARD[i].houseCost || 0) / 2;
+    return sum + propVal + houseVal;
+  }, 0);
 }
 export function transferable(state, index) {
   const group = groupFor(index);

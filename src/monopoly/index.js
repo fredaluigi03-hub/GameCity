@@ -5,7 +5,7 @@ import {
 } from './rules.js';
 import { THREE, newStage, tween, label3d, mat, glow, raycast, person, anim, PAL } from '../engine.js';
 import { h, sfx, shuffle, sleep } from '../ui.js';
-import { createHost } from '../host.js';
+import { createHost, HOSTS } from '../host.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = n => `${Math.floor(n).toLocaleString('it-IT')} $`;
@@ -460,9 +460,9 @@ export default {
     });
 
     const host = createHost(ctx, {
-      ...{ name: 'Mr. Magnate', role: 'Banchiere 3D' },
-      position: [-6.8, 0, -4.5],
-      lookAt: [0, 1.4, 0]
+      ...HOSTS.monopoly,
+      position: [-3.8, 0, -3.2],
+      lookAt: [0, 1.2, 0]
     });
 
     const P = ctx.players;
@@ -795,7 +795,7 @@ export default {
           <div class="deedRow"><span>Con 3 Case 🏠🏠🏠</span><b>${money(c.rent[3])}</b></div>
           <div class="deedRow"><span>Con 4 Case 🏠🏠🏠🏠</span><b>${money(c.rent[4])}</b></div>
           <div class="deedRow" style="color:#f87171"><span>Con ALBERGO 🏨</span><b>${money(c.rent[5])}</b></div>
-          <div class="deedRow"><span>Costo ogni Casa/Hotel</span><b>${money(c.houseCost)}</b></div>
+          <div class="deedRow"><span>Costo ogni Casa/Hotel</span><b>${money(c.house || c.houseCost || 50)}</b></div>
           <div class="deedRow"><span>Valore Ipotecario</span><b>${money(mortgageValue(idx))}</b></div>
         `;
       } else if (c.type === 'railroad') {
@@ -821,13 +821,14 @@ export default {
       const curP = P[boardState.current];
       let actionsHtml = '';
       if (owner && owner.id === curP?.id && !curP.bot) {
-        const canB = canBuild(boardState, curP.id, idx) && curP.data.cash >= (c.houseCost || 0);
+        const hCost = c.house || c.houseCost || 50;
+        const canB = canBuild(boardState, curP.id, idx) && curP.data.cash >= hCost;
         const canS = canSell(boardState, curP.id, idx);
         const canM = level === 0 && !isMort;
         const canU = isMort && curP.data.cash >= unmortgageCost(idx);
         actionsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-          ${canB ? `<button type="button" class="btn pri act-build" style="padding:4px 10px;font-size:0.75rem">+🏠 Costruisci (${money(c.houseCost)})</button>` : ''}
-          ${canS ? `<button type="button" class="btn act-sell" style="padding:4px 10px;font-size:0.75rem">-🏠 Vendi (+${money(c.houseCost / 2)})</button>` : ''}
+          ${canB ? `<button type="button" class="btn pri act-build" style="padding:4px 10px;font-size:0.75rem">+🏠 Costruisci (${money(hCost)})</button>` : ''}
+          ${canS ? `<button type="button" class="btn act-sell" style="padding:4px 10px;font-size:0.75rem">-🏠 Vendi (+${money(hCost / 2)})</button>` : ''}
           ${canM ? `<button type="button" class="btn act-mort" style="padding:4px 10px;font-size:0.75rem">🏦 Ipoteca (+${money(mortgageValue(idx))})</button>` : ''}
           ${canU ? `<button type="button" class="btn pri act-unmort" style="padding:4px 10px;font-size:0.75rem">🔓 Riscatta (${money(unmortgageCost(idx))})</button>` : ''}
         </div>`;
@@ -932,8 +933,9 @@ export default {
       const bBuild = leftPanel.querySelector('.act-build');
       if (bBuild) bBuild.onclick = () => {
         const sp = BOARD[inspectedIdx];
+        const hCost = sp.house || sp.houseCost || 50;
         if (build(boardState, curP.id, inspectedIdx)) {
-          curP.data.cash -= sp.houseCost;
+          curP.data.cash -= hCost;
           sfx.win();
           logMsg(`${curP.name} costruisce su ${sp.itName || sp.name}!`);
           sync3DBoardBuildings();
@@ -1075,6 +1077,7 @@ export default {
           sfx.win();
           S.burst(PAL.goldHi, 90, 2.5);
           logMsg(`${player.name} transita dal VIA! e ritira ${money(GO_SALARY)}!`);
+          if (Math.random() < 0.6) host.react('go', player);
         }
         const target = getTokenOffsetOnTile(pIdx, player.data.pos);
         const tf = getSpaceTransform(player.data.pos);
@@ -1206,6 +1209,7 @@ export default {
         boardState.owners[spaceIdx] = player.id;
         sfx.ok();
         logMsg(`${player.name} acquista ${dispName} per ${money(space.price)}.`);
+        if (Math.random() < 0.75) host.react('right', player, { value: money(space.price) });
         sync3DBoardBuildings();
         syncScores();
         renderLeftPanel();
@@ -1251,7 +1255,7 @@ export default {
         if (creditor) creditor.data.cash += amount;
         sfx.bad();
         logMsg(`${player.name} paga ${money(amount)}${creditor ? ` a ${creditor.name}` : ''} (${reason}).`);
-        if (amount >= 150) await host.react('wrong', player, { value: money(amount) });
+        if (amount >= 30) host.react('wrong', player, { value: money(amount) });
       } else {
         // Bankruptcy
         player.data.bankrupt = true;
@@ -1282,7 +1286,7 @@ export default {
       selectInspectSpace(10);
       applyCamera(10);
       logMsg(`🚓 ${player.name} finisce dritto in Prigione!`);
-      await host.say(`Sirene spiegate! ${player.name} finisce dietro le sbarre senza passare dal VIA!`, { mood: 'sad', to: null });
+      await host.react('jail', player);
     }
 
     async function drawCard3D(player, kind, diceTotal) {
@@ -1353,6 +1357,7 @@ export default {
         return;
       }
       if (space.type === 'tax') {
+        if (Math.random() < 0.8) host.react('tax', player, { value: money(space.amount) });
         await chargePlayer(player, space.amount, null, dispName);
         return;
       }
@@ -1386,10 +1391,12 @@ export default {
     function runBotManagement(player) {
       for (const idx of ownedBy(boardState, player.id)) {
         const sp = BOARD[idx];
-        if (sp.type === 'property' && canBuild(boardState, player.id, idx) && player.data.cash >= sp.houseCost + 220) {
+        const hCost = sp.house || sp.houseCost || 50;
+        if (sp.type === 'property' && canBuild(boardState, player.id, idx) && player.data.cash >= hCost + 220) {
           build(boardState, player.id, idx);
-          player.data.cash -= sp.houseCost;
+          player.data.cash -= hCost;
           logMsg(`${player.name} costruisce su ${sp.itName || sp.name}.`);
+          if (Math.random() < 0.45) host.react('build', player);
           sync3DBoardBuildings();
         }
       }
@@ -1444,7 +1451,7 @@ export default {
     syncScores();
     renderLeftPanel();
     applyCamera(0);
-    await host.react('intro');
+    await host.react('intro', P[0]);
 
     while (!finished && !ctx.dead) {
       const alive = activePlayers();
@@ -1541,6 +1548,7 @@ export default {
             break;
           }
           rollAgain = true;
+          if (Math.random() < 0.65) host.react('doubles', player);
         }
 
         await animatePawnSteps3D(player, sum);

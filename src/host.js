@@ -27,7 +27,10 @@ const FEMALE = /elsa|isabella|alice|federica|paola|emma|bianca|carla|female|donn
 const MALE = /diego|cosimo|giuseppe|luca|benigno|roberto|male|uomo|it-it-x-itc|it-it-x-itd/i;
 function pickVoice(v) {
   const it = voices.filter(x => /^it/i.test(x.lang));
-  if (!it.length) return null;
+  if (!it.length) {
+    // Fall back to default voice or first available system voice if no Italian voice installed
+    return voices.find(x => x.default) || voices[0] || null;
+  }
   const pref = (v.prefer || []).map(s => s.toLowerCase());
   for (const p of pref) { const f = it.find(x => x.name.toLowerCase().includes(p)); if (f) return f; }
   const g = v.gender === 'f' ? FEMALE : MALE;
@@ -117,18 +120,23 @@ export function createHost(ctx, def) {
           }
         }, 28);
       }
-      const voice = !sfx.muted && synth && voices.length ? pickVoice(V) : null;
-      if (voice) {
+      const canVoice = !sfx.muted && synth;
+      if (canVoice) {
+        try { synth.resume?.(); } catch {}
+        const voice = voices.length ? pickVoice(V) : null;
         const spokenClean = text.replace(BEEP_RE, ' ... ');
         const parts = chunks(spokenClean).filter(c => c && c.trim().length > 0);
         if (!parts.length) { fin(); return; }
         parts.forEach((c, k) => {
-          const u = new SpeechSynthesisUtterance(c.trim()); u.lang = V.lang; if (voice) u.voice = voice;
-          u.pitch = V.pitch; u.rate = V.rate;
+          const u = new SpeechSynthesisUtterance(c.trim());
+          u.lang = V.lang || 'it-IT';
+          if (voice) u.voice = voice;
+          u.pitch = V.pitch || 1;
+          u.rate = V.rate || 1;
           if (k === parts.length - 1) { u.onend = fin; u.onerror = fin; }
           synth.speak(u);
         });
-        safety = setTimeout(fin, Math.min(14000, text.length * 95 / V.rate + 3000));
+        safety = setTimeout(fin, Math.min(14000, text.length * 95 / (V.rate || 1) + 3000));
       } else if (withBox) safety = setTimeout(fin, Math.min(10000, Math.max(1400, text.length * 55) + 300));
       else fin();
     });
@@ -339,6 +347,28 @@ export const HOSTS = {
         'Se fai sei vai in galera, se fai sette paghi il triplo... tensione pura!',
         'Trattativa sul filo del rasoio: chi cede per primo?',
         'Tutti col fiato sospeso: uscirà la carta che ribalta la partita?'
+      ],
+      doubles: [
+        'Dadi doppi per {name}! Il tavolo è infuocato: lancia ancora!',
+        'Doppio colpo! Che c***o [BEEP] di fortuna sfacciata!',
+        'Ancora un lancio per {name}! Ma occhio al terzo doppio che finisci dritto in gabbia!'
+      ],
+      jail: [
+        'Sirene spiegate! {name} finisce dietro le sbarre senza passare dal VIA!',
+        'Doccia fredda per {name}: dritto in gattabuia! Ma che c***o [BEEP] hai combinato?!',
+        'Arrestato in diretta nazionale! Guardie, portatelo via con le arance!'
+      ],
+      go: [
+        'Stipendio ritirato al VIA! Duecento verdoni freschi per {name}!',
+        'Passaggio dal VIA! La banca apre la cassa e sorride!'
+      ],
+      tax: [
+        'Stangata fiscale! Le tasse non perdonano nessuno, porca p***a [BEEP]!',
+        'Prelievo forzoso dal conto di {name}! Che m***a [BEEP] di sfortuna!'
+      ],
+      build: [
+        'Nuova costruzione! I mattoni costano ma rendono un f***uto [BEEP] patrimonio!',
+        'Case verdi sul terreno! Qui chi ci passa lascia pure le mutande!'
       ],
       outro: [
         'Il tavolo chiude per stasera! Contate i soldi e nascondeteli sotto il materasso.',
