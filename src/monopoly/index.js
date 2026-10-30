@@ -3,45 +3,490 @@ import {
   START_CASH, GO_SALARY, rentDue, canBuild, canSell, build, sellBuilding,
   mortgageValue, unmortgageCost, netWorth, ownedBy, groupFor, transferable, resolveCardMovement
 } from './rules.js';
-import { h, sfx, shuffle, sleep, getGameSpeed } from '../ui.js';
+import { THREE, newStage, tween, label3d, mat, glow, raycast, person, anim, PAL } from '../engine.js';
+import { h, sfx, shuffle, sleep } from '../ui.js';
 import { createHost } from '../host.js';
-import { newStage } from '../engine.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = n => `${Math.floor(n).toLocaleString('it-IT')} $`;
-const color = {
-  brown: '#8b4513', lightblue: '#38bdf8', pink: '#ec4899', orange: '#f97316',
-  red: '#ef4444', yellow: '#eab308', green: '#22c55e', darkblue: '#2563eb'
+
+const GROUP_HEX = {
+  brown: '#8b4513',
+  lightblue: '#38bdf8',
+  pink: '#ec4899',
+  orange: '#f97316',
+  red: '#ef4444',
+  yellow: '#eab308',
+  green: '#22c55e',
+  darkblue: '#2563eb'
 };
-const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+export const MONOPOLY_TOKENS = [
+  { id: 'tophat', icon: '🎩', label: 'Cilindro' },
+  { id: 'car', icon: '🏎️', label: 'Auto da Corsa' },
+  { id: 'dog', icon: '🐕', label: 'Cane Scotty' },
+  { id: 'ship', icon: '🚢', label: 'Corazzata' },
+  { id: 'thimble', icon: '🪡', label: 'Ditale' },
+  { id: 'boot', icon: '👢', label: 'Stivale' },
+  { id: 'wheelbarrow', icon: '🛒', label: 'Carriola' },
+  { id: 'iron', icon: '熨', label: 'Ferro da Stiro' }
+];
+
+// ---- Board 3D coordinate system (10.4 x 10.4 world units) ----
+const BOARD_SIZE = 10.4;
+const CORNER_W = 1.6;
+const PROP_W = 0.8;
+const Y_TABLE = 1.05;
+const Y_BOARD = 1.16;
+
+function getSpaceTransform(i) {
+  // Returns { x, z, rotY, isCorner, w, d }
+  if (i === 0) return { x: 4.4, z: 4.4, rotY: 0, isCorner: true, w: CORNER_W, d: CORNER_W };
+  if (i > 0 && i < 10) return { x: 4.0 - i * 0.8, z: 4.4, rotY: 0, isCorner: false, w: 0.8, d: CORNER_W };
+  if (i === 10) return { x: -4.4, z: 4.4, rotY: Math.PI / 2, isCorner: true, w: CORNER_W, d: CORNER_W };
+  if (i > 10 && i < 20) return { x: -4.4, z: 4.0 - (i - 10) * 0.8, rotY: Math.PI / 2, isCorner: false, w: 0.8, d: CORNER_W };
+  if (i === 20) return { x: -4.4, z: -4.4, rotY: Math.PI, isCorner: true, w: CORNER_W, d: CORNER_W };
+  if (i > 20 && i < 30) return { x: -4.0 + (i - 20) * 0.8, z: -4.4, rotY: Math.PI, isCorner: false, w: 0.8, d: CORNER_W };
+  if (i === 30) return { x: 4.4, z: -4.4, rotY: -Math.PI / 2, isCorner: true, w: CORNER_W, d: CORNER_W };
+  return { x: 4.4, z: -4.0 + (i - 30) * 0.8, rotY: -Math.PI / 2, isCorner: false, w: 0.8, d: CORNER_W };
+}
+
+// ---- Sculpted 3D Monopoly Tokens ----
+function createTokenMesh3D(tokenId, playerColor) {
+  const g = new THREE.Group();
+  const silver = mat('#e2e8f0', { metalness: 0.92, roughness: 0.16 });
+  const chrome = mat('#cbd5e1', { metalness: 0.85, roughness: 0.22 });
+  const accentM = mat(playerColor, { metalness: 0.65, roughness: 0.28, emissive: playerColor, emissiveIntensity: 0.18 });
+  const darkM = mat('#1e293b', { metalness: 0.5, roughness: 0.4 });
+
+  // Pedestal base ring with player color
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.21, 0.05, 24), accentM);
+  base.position.y = 0.025;
+  const innerBase = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.07, 24), silver);
+  innerBase.position.y = 0.04;
+  g.add(base, innerBase);
+
+  const body = new THREE.Group();
+  body.position.y = 0.07;
+  g.add(body);
+
+  switch (tokenId) {
+    case 'tophat': {
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.025, 28), silver);
+      brim.position.y = 0.02;
+      const ribbon = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.04, 24), accentM);
+      ribbon.position.y = 0.05;
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.115, 0.24, 24), silver);
+      crown.position.y = 0.15;
+      body.add(brim, ribbon, crown);
+      break;
+    }
+    case 'car': {
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.07, 0.36), silver);
+      chassis.position.y = 0.06;
+      const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.16, 16), silver);
+      nose.rotation.x = Math.PI / 2;
+      nose.position.set(0, 0.06, 0.14);
+      const cabin = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), accentM);
+      cabin.scale.set(1, 0.7, 1.3);
+      cabin.position.set(0, 0.11, -0.03);
+      const spoiler = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.05), accentM);
+      spoiler.position.set(0, 0.12, -0.17);
+      body.add(chassis, nose, cabin, spoiler);
+      for (const [wx, wz] of [[-0.1, 0.11], [0.1, 0.11], [-0.1, -0.11], [0.1, -0.11]]) {
+        const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.035, 16), darkM);
+        wh.rotation.z = Math.PI / 2;
+        wh.position.set(wx, 0.048, wz);
+        body.add(wh);
+      }
+      break;
+    }
+    case 'dog': {
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.13, 0.22), silver);
+      torso.position.set(0, 0.11, 0);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.14), silver);
+      head.position.set(0, 0.2, 0.1);
+      const snout = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.09), chrome);
+      snout.position.set(0, 0.18, 0.18);
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.015, 8, 20), accentM);
+      collar.rotation.x = Math.PI / 2;
+      collar.position.set(0, 0.15, 0.07);
+      const earL = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.07, 8), silver);
+      earL.position.set(-0.04, 0.28, 0.08);
+      const earR = earL.clone();
+      earR.position.x = 0.04;
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.1, 8), silver);
+      tail.position.set(0, 0.19, -0.12);
+      tail.rotation.x = -0.4;
+      body.add(torso, head, snout, collar, earL, earR, tail);
+      for (const [lx, lz] of [[-0.04, 0.07], [0.04, 0.07], [-0.04, -0.07], [0.04, -0.07]]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.02, 0.09, 10), silver);
+        leg.position.set(lx, 0.045, lz);
+        body.add(leg);
+      }
+      break;
+    }
+    case 'ship': {
+      const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.06, 0.36, 16), silver);
+      hull.rotation.x = Math.PI / 2;
+      hull.scale.set(1.1, 1, 0.55);
+      hull.position.y = 0.05;
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.2), chrome);
+      deck.position.set(0, 0.1, -0.01);
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.08), accentM);
+      bridge.position.set(0, 0.15, 0.03);
+      const stack1 = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.09, 12), silver);
+      stack1.position.set(0, 0.16, -0.05);
+      body.add(hull, deck, bridge, stack1);
+      break;
+    }
+    case 'thimble': {
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.135, 0.24, 24), silver);
+      cup.position.y = 0.12;
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), silver);
+      dome.position.y = 0.24;
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.128, 0.014, 8, 24), accentM);
+      band.rotation.x = Math.PI / 2;
+      band.position.y = 0.05;
+      body.add(cup, dome, band);
+      break;
+    }
+    case 'boot': {
+      const ankle = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.22, 18), silver);
+      ankle.position.set(0, 0.12, -0.03);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.09, 0.24), silver);
+      foot.position.set(0, 0.05, 0.03);
+      const toe = new THREE.Mesh(new THREE.SphereGeometry(0.066, 16, 12), silver);
+      toe.position.set(0, 0.05, 0.14);
+      const sole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.26), accentM);
+      sole.position.set(0, 0.012, 0.03);
+      body.add(ankle, foot, toe, sole);
+      break;
+    }
+    case 'wheelbarrow': {
+      const tray = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.22), silver);
+      tray.position.set(0, 0.11, 0);
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.018, 10, 20), accentM);
+      wheel.rotation.y = Math.PI / 2;
+      wheel.position.set(0, 0.06, 0.16);
+      const hL = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.28, 8), chrome);
+      hL.rotation.x = Math.PI / 2 - 0.15;
+      hL.position.set(-0.07, 0.09, -0.06);
+      const hR = hL.clone();
+      hR.position.x = 0.07;
+      body.add(tray, wheel, hL, hR);
+      break;
+    }
+    default: { // iron
+      const plate = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.28, 3), silver);
+      plate.rotation.x = Math.PI / 2;
+      plate.scale.set(1, 1, 0.35);
+      plate.position.set(0, 0.04, 0.02);
+      const arch = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 10, 20, Math.PI), accentM);
+      arch.rotation.y = Math.PI / 2;
+      arch.position.set(0, 0.08, 0);
+      body.add(plate, arch);
+      break;
+    }
+  }
+  return g;
+}
+
+// ---- 3D House & Hotel Meshes ----
+function createHouseMesh3D() {
+  const g = new THREE.Group();
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14, 0.12, 0.14),
+    mat('#16a34a', { roughness: 0.35, metalness: 0.15 })
+  );
+  wall.position.y = 0.06;
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(0.12, 0.1, 4),
+    mat('#15803d', { roughness: 0.3, metalness: 0.2 })
+  );
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = 0.17;
+  g.add(wall, roof);
+  return g;
+}
+
+function createHotelMesh3D() {
+  const g = new THREE.Group();
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.2, 0.18),
+    mat('#dc2626', { roughness: 0.3, metalness: 0.25 })
+  );
+  wall.position.y = 0.1;
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(0.26, 0.04, 0.2),
+    mat('#fbbf24', { roughness: 0.25, metalness: 0.85 })
+  );
+  roof.position.y = 0.22;
+  g.add(wall, roof);
+  return g;
+}
+
+// ---- 3D Dice with 6 Pip Faces ----
+function createDieFaceMaterial(n) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#f8fafc';
+  cx.fillRect(0, 0, 128, 128);
+  cx.strokeStyle = '#cbd5e1';
+  cx.lineWidth = 6;
+  cx.strokeRect(3, 3, 122, 122);
+
+  const pips = {
+    1: [[64, 64]],
+    2: [[34, 34], [94, 94]],
+    3: [[32, 32], [64, 64], [96, 96]],
+    4: [[34, 34], [94, 34], [34, 94], [94, 94]],
+    5: [[32, 32], [96, 32], [64, 64], [32, 96], [96, 96]],
+    6: [[34, 28], [94, 28], [34, 64], [94, 64], [34, 100], [94, 100]]
+  }[n] || [[64, 64]];
+
+  cx.fillStyle = n === 1 || n === 4 ? '#dc2626' : '#0f172a';
+  for (const [px, py] of pips) {
+    cx.beginPath();
+    cx.arc(px, py, n === 1 ? 16 : 11, 0, Math.PI * 2);
+    cx.fill();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.08 });
+}
+
+// BoxGeometry face order: 0:+X(2), 1:-X(5), 2:+Y(1), 3:-Y(6), 4:+Z(3), 5:-Z(4)
+const DIE_TOP_ROT = {
+  1: { x: 0, z: 0 },
+  6: { x: Math.PI, z: 0 },
+  2: { x: 0, z: Math.PI / 2 },
+  5: { x: 0, z: -Math.PI / 2 },
+  3: { x: -Math.PI / 2, z: 0 },
+  4: { x: Math.PI / 2, z: 0 }
+};
+
+function createDie3D() {
+  const mats = [2, 5, 1, 6, 3, 4].map(createDieFaceMaterial);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.44), mats);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+// ---- High-Resolution 2048x2048 3D Board CanvasTexture ----
+function createMonopolyBoardTexture() {
+  const S = 2048;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const cx = cv.getContext('2d');
+  const U = S / BOARD_SIZE; // ~196.92 px per unit
+  const CW = CORNER_W * U;  // ~315 px
+  const PW = 0.8 * U;       // ~157.5 px
+
+  // Classic mint-cream board background
+  cx.fillStyle = '#dce8dc';
+  cx.fillRect(0, 0, S, S);
+
+  // Inner playing square
+  cx.fillStyle = '#0f241d';
+  cx.fillRect(CW, CW, S - 2 * CW, S - 2 * CW);
+  cx.strokeStyle = '#d8b45a';
+  cx.lineWidth = 6;
+  cx.strokeRect(CW + 8, CW + 8, S - 2 * CW - 16, S - 2 * CW - 16);
+
+  // Center Monopoly diagonal logo
+  cx.save();
+  cx.translate(S / 2, S / 2);
+  cx.rotate(-Math.PI / 4);
+  cx.fillStyle = '#dc2626';
+  cx.strokeStyle = '#ffffff';
+  cx.lineWidth = 10;
+  cx.fillRect(-440, -110, 880, 220);
+  cx.strokeRect(-440, -110, 880, 220);
+  cx.font = '900 148px "Bebas Neue", Outfit, sans-serif';
+  cx.fillStyle = '#ffffff';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.shadowColor = 'rgba(0,0,0,0.55)';
+  cx.shadowBlur = 12;
+  cx.fillText('MONOPOLY', 0, 8);
+  cx.shadowBlur = 0;
+  cx.font = '700 30px Outfit, sans-serif';
+  cx.fillStyle = '#ffd24a';
+  cx.fillText('EDIZIONE GRAN STUDIO ITALIA 3D', 0, 155);
+
+  // Card Deck outlines on the board
+  cx.strokeStyle = 'rgba(249, 115, 22, 0.7)';
+  cx.lineWidth = 5;
+  cx.strokeRect(-380, -450, 280, 180);
+  cx.font = '700 28px Outfit, sans-serif';
+  cx.fillStyle = '#fb923c';
+  cx.fillText('IMPREVISTI', -240, -360);
+
+  cx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+  cx.strokeRect(100, 270, 280, 180);
+  cx.fillStyle = '#38bdf8';
+  cx.fillText('PROBABILITÀ', 240, 360);
+  cx.restore();
+
+  // Helper to draw each of the 40 spaces
+  function drawTileContent(c, idx, w, h) {
+    cx.fillStyle = '#f3f1e6';
+    cx.fillRect(-w / 2, -h / 2, w, h);
+    cx.strokeStyle = '#1e293b';
+    cx.lineWidth = 4;
+    cx.strokeRect(-w / 2, -h / 2, w, h);
+
+    const name = c.itName || c.name;
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+
+    if (idx === 0 || idx === 10 || idx === 20 || idx === 30) {
+      cx.fillStyle = '#0f172a';
+      cx.font = '900 36px "Bebas Neue", Outfit, sans-serif';
+      const icon = idx === 0 ? '⬅️ VIA!' : idx === 10 ? '⛓️ PRIGIONE' : idx === 20 ? '🅿️ PARCHEGGIO' : '🚓 IN PRIGIONE!';
+      cx.fillText(icon, 0, -35);
+      cx.font = '700 22px Outfit, sans-serif';
+      cx.fillStyle = '#dc2626';
+      cx.fillText(idx === 0 ? 'RITIRA 200 $' : idx === 10 ? 'O TRANSITO' : idx === 20 ? 'GRATUITO' : 'VAI SUBITO!', 0, 25);
+      return;
+    }
+
+    // Color header bar at the top of the tile (inner side facing center)
+    if (c.color && GROUP_HEX[c.color]) {
+      cx.fillStyle = GROUP_HEX[c.color];
+      cx.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h * 0.26);
+      cx.strokeStyle = '#0f172a';
+      cx.lineWidth = 3;
+      cx.strokeRect(-w / 2 + 2, -h / 2 + 2, w - 4, h * 0.26);
+    }
+
+    // Icon for special spaces
+    if (c.type === 'railroad') {
+      cx.font = '44px sans-serif';
+      cx.fillText('🚂', 0, -h * 0.22);
+    } else if (c.type === 'utility') {
+      cx.font = '44px sans-serif';
+      cx.fillText(name.includes('Acqua') ? '🚰' : '💡', 0, -h * 0.22);
+    } else if (c.type === 'chance') {
+      cx.font = '900 64px "Bebas Neue", sans-serif';
+      cx.fillStyle = '#f97316';
+      cx.fillText('?', 0, -h * 0.12);
+    } else if (c.type === 'chest') {
+      cx.font = '44px sans-serif';
+      cx.fillText('📦', 0, -h * 0.18);
+    } else if (c.type === 'tax') {
+      cx.font = '42px sans-serif';
+      cx.fillText('💎', 0, -h * 0.18);
+    }
+
+    // Wrap space name
+    cx.fillStyle = '#0f172a';
+    cx.font = '700 20px Outfit, sans-serif';
+    const words = name.split(' ');
+    let lines = [];
+    let cur = '';
+    for (const wd of words) {
+      const test = cur ? cur + ' ' + wd : wd;
+      if (cx.measureText(test).width > w - 16 && cur) {
+        lines.push(cur);
+        cur = wd;
+      } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    const startY = c.color ? -12 : 10;
+    lines.slice(0, 3).forEach((ln, li) => {
+      cx.fillText(ln, 0, startY + li * 24);
+    });
+
+    // Price at bottom of tile
+    if (c.price || c.amount) {
+      cx.font = '800 22px Outfit, sans-serif';
+      cx.fillStyle = '#1e293b';
+      cx.fillText(`${c.price || c.amount} $`, 0, h / 2 - 26);
+    }
+  }
+
+  for (let i = 0; i < 40; i++) {
+    const tf = getSpaceTransform(i);
+    const px = (tf.x + BOARD_SIZE / 2) * U;
+    const pz = (tf.z + BOARD_SIZE / 2) * U;
+    cx.save();
+    cx.translate(px, pz);
+    cx.rotate(-tf.rotY);
+    drawTileContent(BOARD[i], i, tf.w * U, tf.d * U);
+    cx.restore();
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
 
 export default {
   id: 'monopoly',
-  name: 'Monopoly',
-  tag: 'Gioco da tavolo · Classic Tabletop',
-  desc: 'Compra proprietà, costruisci case e hotel, contratta e manda in bancarotta gli avversari!',
+  name: 'Monopoly 3D',
+  tag: 'Gioco da tavolo 3D · Edizione Italia',
+  desc: 'Scegli la tua pedina 3D, lancia davvero i dadi sul tabellone tridimensionale, costruisci case e alberghi 3D e conquista tutte le proprietà!',
   c1: '#22c55e',
   c2: '#2563eb',
+  tokens: MONOPOLY_TOKENS,
   players: { min: 1, max: 6, def: 4, rival: true },
   difficulty: true,
   rules: [
-    'Tavolo da gioco immersivo: lancia i dadi e muovi la tua pedina casella per casella lungo il tabellone.',
-    'Ogni passaggio dal VIA! accredita 200 $ di stipendio.',
-    'Compra proprietà libere, partecipa ad aste spietate, costruisci case e alberghi per moltiplicare gli affitti.',
-    'Carte Imprevisti e Probabilità, Prigione, Tasse e contrattazioni libere tra giocatori.',
-    'Vince chi resta l’ultimo magnate solvibile sul tabellone!'
+    'All’inizio ogni giocatore sceglie la propria Pedina 3D ufficiale del Monopoly (Cilindro, Auto da corsa, Cane Scotty, Corazzata, Ditale, Stivale, Carriola, Ferro da stiro).',
+    'Al tuo turno premi «Lancia i Dadi 3D»: i due dadi vengono lanciati fisicamente sul tabellone 3D e la tua pedina salta casella per casella.',
+    'Ogni volta che passi o ti fermi sul VIA! incassi 200 $ dalla Banca. Se fai doppio con i dadi hai diritto a un lancio extra (ma 3 doppi di fila ti mandano in Prigione!).',
+    'Quando atterri su una proprietà libera puoi acquistarla al prezzo di listino; se rifiuti, parte subito l’Asta aperta a tutti i giocatori.',
+    'Quando possiedi tutte le proprietà di uno stesso colore (Monopolio), la rendita raddoppia e puoi costruire Case 3D verdi (fino a 4) e Alberghi 3D rossi in modo uniforme.',
+    'Usa il pannello a sinistra per ispezionare qualsiasi contratto, costruire case, ipotecare proprietà o proporre scambi agli avversari.'
   ],
+  guide: `
+    <h4 style="margin:0 0 6px;color:#ffd24a">Guida Rapida al Tabellone 3D</h4>
+    <p style="margin:0 0 6px">• <b>Clic sul Tabellone 3D o sui Badge a sinistra</b>: Tocca qualsiasi casella sul tavolo 3D (o nella barra a sinistra) per leggere il Contratto completo con tutte le rendite da 1 a 4 case, Albergo e valore ipotecario.</p>
+    <p style="margin:0 0 6px">• <b>Costruzione Uniforme</b>: Puoi costruire case appena possiedi l’intero gruppo colore senza ipoteche. Le case vanno distribuite uniformemente (non più di 1 casa di differenza tra le vie dello stesso colore).</p>
+    <p style="margin:0">• <b>Inquadrature Telecamera 3D</b>: Usa i pulsanti in alto a destra per passare tra Visuale Dinamica, Vista dall’Alto, Panoramica e Zoom sulla tua Pedina.</p>
+  `,
+
   async start(ctx) {
     const S = ctx.stage = newStage({
       c1: this.c1,
       c2: this.c2,
-      bg: '#070f0b',
-      cam: [0, 4.6, 14],
-      look: [0, 2.5, 0]
+      bg: '#050c09',
+      cam: [0, 9.8, 10.6],
+      look: [0, 1.1, 0.4]
     });
 
-    const host = createHost(ctx, 'monopoly');
+    const host = createHost(ctx, {
+      ...{ name: 'Mr. Magnate', role: 'Banchiere 3D' },
+      position: [-6.8, 0, -4.5],
+      lookAt: [0, 1.4, 0]
+    });
+
     const P = ctx.players;
+    // Assign distinct 3D Monopoly tokens if not already set
+    const usedToks = new Set();
+    P.forEach((p, i) => {
+      let tok = p.token;
+      if (!tok || usedToks.has(tok.id)) {
+        tok = MONOPOLY_TOKENS.find(t => !usedToks.has(t.id)) || MONOPOLY_TOKENS[i % MONOPOLY_TOKENS.length];
+      }
+      usedToks.add(tok.id);
+      p.token = tok;
+      Object.assign(p.data, {
+        cash: START_CASH,
+        pos: 0,
+        jail: 0,
+        jailCard: 0,
+        doubles: 0,
+        bankrupt: false,
+        seat: i,
+        tokenId: tok.id
+      });
+    });
+
     const boardState = {
       owners: Array(40).fill(null),
       houses: Array(40).fill(0),
@@ -51,586 +496,1053 @@ export default {
       current: 0
     };
 
-    P.forEach((p, i) => Object.assign(p.data, {
-      cash: START_CASH,
-      pos: 0,
-      jail: 0,
-      jailCard: 0,
-      doubles: 0,
-      bankrupt: false,
-      seat: i
-    }));
+    // ---- Build 3D Luxury Mahogany Table & Monopoly 3D Board ----
+    const tableGroup = new THREE.Group();
+    S.add(tableGroup);
 
-    const wrap = h('div', 'monopolyBoardWrap');
-    ctx.sideAdd(wrap);
+    const mahogany = mat('#2c160e', { roughness: 0.32, metalness: 0.25 });
+    const goldMat = mat(PAL.gold, { metalness: 0.92, roughness: 0.22 });
+    const feltMat = mat('#0b291e', { roughness: 0.65, metalness: 0.05 });
 
-    const board = h('section', 'monopolyBoard');
-    board.setAttribute('aria-label', 'Tabellone Monopoly');
-    wrap.append(board);
+    // Central pedestal & table top
+    const pedBase = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 4.2, 0.25, 48), mahogany);
+    pedBase.position.y = 0.125;
+    const pedCol = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.8, 0.85, 32), mahogany);
+    pedCol.position.y = 0.55;
+    const tableRim = new THREE.Mesh(new THREE.BoxGeometry(11.6, 0.22, 11.6), mahogany);
+    tableRim.position.y = Y_TABLE - 0.06;
+    const goldTrim = new THREE.Mesh(new THREE.BoxGeometry(11.68, 0.06, 11.68), goldMat);
+    goldTrim.position.y = Y_TABLE;
+    tableGroup.add(pedBase, pedCol, tableRim, goldTrim);
 
-    const cells = BOARD.map((cell, i) => {
-      const n = h('div', 'monopolyCell ' + cell.type);
-      n.dataset.index = i;
-      board.append(n);
-      return n;
-    });
+    // 3D Monopoly Board Slab
+    const boardTex = createMonopolyBoardTexture();
+    const boardTopMat = new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.28, metalness: 0.06 });
+    const boardSideMat = mat('#14201b', { roughness: 0.5, metalness: 0.3 });
+    const boardMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(BOARD_SIZE, 0.12, BOARD_SIZE),
+      [boardSideMat, boardSideMat, boardTopMat, boardSideMat, boardSideMat, boardSideMat]
+    );
+    boardMesh.position.y = Y_BOARD - 0.06;
+    boardMesh.receiveShadow = true;
+    tableGroup.add(boardMesh);
 
-    const center = h('div', 'monopolyCenter');
-    center.style.gridColumn = '2 / 11';
-    center.style.gridRow = '2 / 11';
-    center.innerHTML = `
-      <div class="monoBrand">MONOPOLY</div>
-      <div class="monoCenterTitle">EDIZIONE SPECIALE STUDIO</div>
-      <div id="monoDiceBox" style="font-size:2.4rem;min-height:48px;display:flex;gap:12px;align-items:center;margin:4px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">🎲 🎲</div>
-      <div class="monoLog" aria-live="polite"></div>
-      <div class="monoPlayers"></div>
-      <div class="monoSupply"></div>
-    `;
-    board.append(center);
-
-    const logEl = center.querySelector('.monoLog');
-    const playerEl = center.querySelector('.monoPlayers');
-    const supplyEl = center.querySelector('.monoSupply');
-    const diceBoxEl = center.querySelector('#monoDiceBox');
-
-    let deckChance = shuffle(CHANCE);
-    let deckChest = shuffle(CHEST);
-    let log = [];
-    let finished = false;
-
-    const logMsg = s => {
-      log.unshift(s);
-      log = log.slice(0, 3);
-      if (logEl) logEl.innerHTML = log.map(x => `<div>${x}</div>`).join('');
+    // 3D Probabilità & Imprevisti Card Decks on Board
+    const createCardDeck3D = (col, x, z, rotY) => {
+      const dg = new THREE.Group();
+      dg.position.set(x, Y_BOARD, z);
+      dg.rotation.y = rotY;
+      const stack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.12, 0.76), mat('#f8fafc', { roughness: 0.5 }));
+      stack.position.y = 0.06;
+      const topCard = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.02, 0.77), mat(col, { roughness: 0.3, metalness: 0.2 }));
+      topCard.position.y = 0.125;
+      dg.add(stack, topCard);
+      tableGroup.add(dg);
+      return dg;
     };
+    const chanceDeck3D = createCardDeck3D('#f97316', -1.8, -1.8, Math.PI / 4);
+    const chestDeck3D = createCardDeck3D('#38bdf8', 1.8, 1.8, Math.PI / 4);
 
-    const cp = p => `<i class="monoToken" style="--pc:${p.color}" title="${esc(p.name)}">${esc(p.name.slice(0, 1).toUpperCase())}</i>`;
+    // 40 3D Interactive Tile Hitboxes, Raised Color Bars, Ownership Pins & Building Containers
+    const tileHitMeshes = [];
+    const tileGroups = [];
+    const buildingGroups = [];
+    const ownerMarkers = [];
 
-    function paint(highlightIdx = -1) {
-      BOARD.forEach((c, i) => {
-        const e = cells[i];
-        const owner = boardState.owners[i];
-        const level = boardState.houses[i] || 0;
-        const row = i === 0 ? `${i}` : String(i).padStart(2, '0');
-        const vertical = (i >= 11 && i <= 19) || i >= 31;
-        const displayName = c.itName || c.name;
-
-        e.className = `monopolyCell ${c.type}${vertical ? ' v' : ''}${i === highlightIdx ? ' active-target' : ''}`;
-        e.style.setProperty('--cell-color', color[c.color] || '#38bdf8');
-        e.innerHTML = `
-          <span class="monoNo">${row}</span>
-          ${c.color ? '<b class="monoStripe"></b>' : ''}
-          <strong>${esc(displayName)}</strong>
-          ${c.price ? `<small>${money(c.price)}</small>` : ''}
-          ${owner != null ? `<span class="monoOwner" style="--pc:${P[owner].color}"></span>` : ''}
-          ${level ? `<span class="monoBuild">${level === 5 ? 'HOTEL' : '🏠'.repeat(level)}</span>` : ''}
-          <span class="monoPawns">${P.filter(p => !p.data.bankrupt && p.data.pos === i).map(cp).join('')}</span>
-        `;
-        e.dataset.side = vertical ? 'v' : 'h';
-
-        if (i <= 10) { e.style.gridColumn = String(11 - i); e.style.gridRow = '11'; }
-        else if (i <= 20) { e.style.gridColumn = '1'; e.style.gridRow = String(21 - i); }
-        else if (i <= 30) { e.style.gridColumn = String(i - 19); e.style.gridRow = '1'; }
-        else { e.style.gridColumn = '11'; e.style.gridRow = String(i - 29); }
-      });
-
-      playerEl.innerHTML = P.map(p => `
-        <div class="monoPlayer ${p.data.bankrupt ? 'bankrupt' : ''}" style="--pc:${p.color}">
-          <i></i>
-          <span>${esc(p.name)}${p.bot ? ' · CPU' : ''}</span>
-          <b>${money(p.data.cash)}</b>
-        </div>
-      `).join('');
-
-      supplyEl.textContent = `Case rimaste: ${boardState.bank.houses}/32 · Hotel: ${boardState.bank.hotels}/12`;
-      ctx.hud(`<span class="pill">Turno: <b>${esc(P[boardState.current]?.name || '—')}</b></span>`);
-    }
-
-    const active = () => P.filter(p => !p.data.bankrupt);
-    const current = () => P[boardState.current];
-
-    const show = (title, body, actions) => {
-      const card = h('div', 'card monopolyAction', `<p class="kicker">MONOPOLY · ${title}</p><div class="monoBody">${body}</div>`);
-      const row = h('div', 'row');
-      for (const [label, fn, cls = 'btn'] of actions) {
-        const b = h('button', cls, label);
-        b.onclick = fn;
-        row.append(b);
-      }
-      card.append(row);
-      ctx.dock(card);
-      return card;
-    };
-
-    const ask = (title, body, buttons) => new Promise(resolve => {
-      let done = false;
-      const finish = v => { if (done) return; done = true; resolve(v); };
-      show(title, body, buttons.map(([label, val, cls]) => [label, () => finish(val), cls]));
-    });
-
-    // Movimento animato casella per casella
-    async function animatedMoveTo(p, targetPos, collect = true) {
-      const startPos = p.data.pos;
-      const steps = (targetPos - startPos + 40) % 40;
-      const speed = getGameSpeed();
-      let cur = startPos;
-
-      for (let s = 1; s <= steps; s++) {
-        cur = (startPos + s) % 40;
-        if (collect && cur === 0 && startPos !== 0) {
-          p.data.cash += GO_SALARY;
-          sfx.ok();
-          logMsg(`${esc(p.name)} passa dal VIA e ritira ${money(GO_SALARY)}!`);
-        }
-        p.data.pos = cur;
-        sfx.click();
-        paint(cur);
-        await sleep(140 / speed);
-      }
-      p.data.pos = targetPos;
-      paint(targetPos);
-    }
-
-    // Lancio animato dei dadi
-    async function rollDiceAnim() {
-      sfx.dice();
-      const speed = getGameSpeed();
-      for (let i = 0; i < 6; i++) {
-        const f1 = DICE_FACES[Math.floor(Math.random() * 6)];
-        const f2 = DICE_FACES[Math.floor(Math.random() * 6)];
-        if (diceBoxEl) diceBoxEl.textContent = `${f1}  ${f2}`;
-        await sleep(60 / speed);
-      }
-      const d1 = 1 + Math.floor(Math.random() * 6);
-      const d2 = 1 + Math.floor(Math.random() * 6);
-      if (diceBoxEl) diceBoxEl.textContent = `${DICE_FACES[d1 - 1]}  ${DICE_FACES[d2 - 1]}`;
-      return [d1, d2];
-    }
-
-    async function chooseManage(p) {
-      while (!p.bot) {
-        const owned = ownedBy(boardState, p.data.seat);
-        const choices = [['🎲 Tira i dadi', 'roll', 'btn pri']];
-        if (owned.some(i => canBuild(boardState, i, p.data.seat))) choices.push(['🏠 Costruisci', 'build', 'btn']);
-        if (owned.some(i => canSell(boardState, i, p.data.seat))) choices.push(['Vendi case', 'sell', 'btn']);
-        if (owned.some(i => !boardState.mortgages.has(i) && !(boardState.houses[i] || 0) && (!groupFor(i) || GROUPS[groupFor(i)].every(j => !(boardState.houses[j] || 0))))) choices.push(['Ipoteca', 'mortgage', 'btn']);
-        if (owned.some(i => boardState.mortgages.has(i))) choices.push(['Riscatta ipoteca', 'unmortgage', 'btn']);
-        if (active().length > 1) choices.push(['🤝 Scambia', 'trade', 'btn']);
-        choices.push(['Termina partita', 'end', 'btn danger']);
-
-        const action = await ask('Gestione proprietà', `<p>Saldo: <b>${money(p.data.cash)}</b> · ${owned.length} proprietà possedute</p>`, choices);
-        if (action === 'roll') return true;
-        if (action === 'end') { await finishGame('Partita terminata dai giocatori'); return false; }
-        if (['build', 'sell', 'mortgage', 'unmortgage'].includes(action)) await manageOne(p, action);
-        if (action === 'trade') await trade(p);
-      }
-      return true;
-    }
-
-    async function manageOne(p, action) {
-      const ids = ownedBy(boardState, p.data.seat).filter(i =>
-        action === 'build' ? canBuild(boardState, i, p.data.seat) :
-        action === 'sell' ? canSell(boardState, i, p.data.seat) :
-        action === 'mortgage' ? (!boardState.mortgages.has(i) && !(boardState.houses[i] || 0) && (!groupFor(i) || GROUPS[groupFor(i)].every(j => !(boardState.houses[j] || 0)))) :
-        boardState.mortgages.has(i)
-      );
-      if (!ids.length) return;
-
-      const id = await ask('Scegli proprietà', `<p>Saldo: ${money(p.data.cash)}</p>`, [
-        ...ids.map(i => [`${BOARD[i].itName || BOARD[i].name} · ${action === 'build' ? money(BOARD[i].house) : ''}`, i]),
-        ['Indietro', null]
-      ]);
-      if (id == null) return;
-
-      if (action === 'build') {
-        build(boardState, id, p.data.seat);
-        sfx.click();
-        logMsg(`${esc(p.name)} costruisce su ${esc(BOARD[id].itName || BOARD[id].name)}.`);
-      }
-      if (action === 'sell') {
-        sellBuilding(boardState, id, p.data.seat);
-        logMsg(`${esc(p.name)} vende una casa.`);
-      }
-      if (action === 'mortgage') {
-        boardState.mortgages.add(id);
-        p.data.cash += mortgageValue(id);
-      }
-      if (action === 'unmortgage' && p.data.cash >= unmortgageCost(id)) {
-        p.data.cash -= unmortgageCost(id);
-        boardState.mortgages.delete(id);
-      }
-      paint(id);
-    }
-
-    async function trade(p) {
-      const rivals = active().filter(q => q !== p);
-      if (!rivals.length) return;
-      const opponent = await ask('Scambio commerciale', 'Con chi vuoi negoziare?', rivals.map(q => [q.name, q.data.seat]));
-      if (opponent == null) return;
-      const q = P[opponent];
-      const mine = ownedBy(boardState, p.data.seat).filter(i => transferable(boardState, i));
-      const theirs = ownedBy(boardState, q.data.seat).filter(i => transferable(boardState, i));
-
-      const give = await ask('La tua offerta', 'Scegli una proprietà da offrire.', [
-        ['Nessuna proprietà', 'none'],
-        ...mine.map(i => [BOARD[i].itName || BOARD[i].name, i]),
-        ['Annulla', 'cancel']
-      ]);
-      if (give === 'cancel') return;
-
-      const get = await ask('La tua richiesta', `Scegli una proprietà di ${esc(q.name)} da ricevere.`, [
-        ['Nessuna proprietà', 'none'],
-        ...theirs.map(i => [BOARD[i].itName || BOARD[i].name, i]),
-        ['Annulla', 'cancel']
-      ]);
-      if (get === 'cancel') return;
-
-      const giveCash = await ask('Soldi da offrire', 'Quanti soldi aggiungi alla tua offerta?', [
-        ['0 $', 0], ...[50, 100, 200, 500].filter(n => n <= p.data.cash).map(n => [money(n), n]), ['Annulla', 'cancel']
-      ]);
-      if (giveCash === 'cancel') return;
-
-      const getCash = await ask('Soldi da chiedere', `Quanti soldi chiedi a ${esc(q.name)}?`, [
-        ['0 $', 0], ...[50, 100, 200, 500].filter(n => n <= q.data.cash).map(n => [money(n), n]), ['Annulla', 'cancel']
-      ]);
-      if (getCash === 'cancel') return;
-
-      if (give === 'none' && get === 'none' && !giveCash && !getCash) return;
-
-      const offerValue = (give === 'none' ? 0 : BOARD[give].price) + giveCash;
-      const requestValue = (get === 'none' ? 0 : BOARD[get].price) + getCash;
-      const summary = `<p><b>${esc(p.name)}</b> offre: ${give === 'none' ? 'nessuna proprietà' : esc(BOARD[give].itName || BOARD[give].name)} + ${money(giveCash)}</p><p>Per ricevere da <b>${esc(q.name)}</b>: ${get === 'none' ? 'nessuna proprietà' : esc(BOARD[get].itName || BOARD[get].name)} + ${money(getCash)}</p>`;
-
-      let accepted;
-      if (q.bot) {
-        await ctx.botThink(500, 900);
-        accepted = requestValue <= offerValue * (0.72 + (q.skill || 0.6) * 0.45);
-      } else {
-        await ctx.passDevice(q);
-        accepted = await ask('Proposta di scambio', summary, [['Accetta accordo', true, 'btn pri'], ['Rifiuta', false, 'btn']]);
-      }
-
-      if (!accepted) {
-        logMsg(`${esc(q.name)} rifiuta lo scambio.`);
-        return;
-      }
-      if (give !== 'none') boardState.owners[give] = q.data.seat;
-      if (get !== 'none') boardState.owners[get] = p.data.seat;
-      p.data.cash += getCash - giveCash;
-      q.data.cash += giveCash - getCash;
-      logMsg('Accordo commerciale concluso con successo!');
-      paint();
-    }
-
-    async function cardDraw(p, kind, diceTotal = 0) {
-      const deck = kind === 'chance' ? deckChance : deckChest;
-      const card = deck.shift();
-      deck.push(card);
-      const title = kind === 'chance' ? 'Imprevisti' : 'Probabilità';
-      logMsg(`${title}: ${esc(card.text)}.`);
-      sfx.whoosh();
-
-      await ask(title, `<p style="font-size:1.15rem;margin:12px 0;">«${esc(card.text)}»</p>`, [['OK', true, 'btn pri']]);
-
-      if (card.jail) {
-        p.data.pos = 10;
-        p.data.jail = 3;
-        sfx.bad();
-        await host.say(`Dritto in prigione senza passare dal Via! Che colpo di sfortuna, ${p.name}!`, { mood: 'wrong' });
-        paint(10);
-        return;
-      }
-      if (card.jailCard) {
-        p.data.jailCard++;
-        return;
-      }
-      const movement = resolveCardMovement(p.data.pos, card);
-      if (movement) {
-        if (movement.collectGo) p.data.cash += GO_SALARY;
-        await animatedMoveTo(p, movement.position, false);
-        return land(p, diceTotal, movement.rentMultiplier);
-      }
-      if (card.cash > 0) {
-        p.data.cash += card.cash;
-        sfx.ok();
-      } else if (card.cash < 0) {
-        await pay(p, null, -card.cash);
-      }
-      if (card.collectEach) {
-        for (const q of P) if (q !== p && !q.data.bankrupt) await pay(q, p, card.collectEach);
-      }
-      if (card.payEach) {
-        for (const q of P) if (q !== p && !q.data.bankrupt) await pay(p, q, card.payEach);
-      }
-      if (card.repair) {
-        const cost = ownedBy(boardState, p.data.seat).reduce((a, i) =>
-          a + ((boardState.houses[i] || 0) === 5 ? card.repair[1] : (boardState.houses[i] || 0) * card.repair[0]), 0);
-        if (cost) await pay(p, null, cost);
-      }
-      paint();
-    }
-
-    async function land(p, dice, mult = 1) {
-      const i = p.data.pos;
+    for (let i = 0; i < 40; i++) {
+      const tf = getSpaceTransform(i);
       const c = BOARD[i];
-      const owner = boardState.owners[i];
-      const name = c.itName || c.name;
-      logMsg(`${esc(p.name)} si ferma su ${esc(name)}.`);
+      const tg = new THREE.Group();
+      tg.position.set(tf.x, Y_BOARD, tf.z);
+      tg.rotation.y = tf.rotY;
+      tableGroup.add(tg);
+      tileGroups.push(tg);
 
-      if (c.type === 'tax') {
-        await pay(p, null, c.amount);
-        sfx.bad();
-        logMsg(`${esc(p.name)} paga ${money(c.amount)} di tasse.`);
-        return;
-      }
-      if (c.type === 'gotojail') {
-        p.data.pos = 10;
-        p.data.jail = 3;
-        sfx.bad();
-        logMsg(`${esc(p.name)} va in prigione.`);
-        await host.say(`Ma che c***o [BEEP] fai?! In prigione senza passare dal Via!`, { mood: 'wrong' });
-        paint(10);
-        return;
-      }
-      if (c.type === 'chance' || c.type === 'chest') {
-        return cardDraw(p, c.type, dice);
-      }
-      if ((c.type === 'property' || c.type === 'railroad' || c.type === 'utility') && owner == null) {
-        const cost = c.price;
-        const deedHtml = `
-          <div style="border-top:5px solid ${color[c.color] || '#38bdf8'};padding-top:8px;">
-            <h2 style="margin-bottom:6px;">${esc(name)}</h2>
-            <p>Prezzo d’acquisto: <b>${money(cost)}</b></p>
-            <p style="font-size:0.85rem;color:var(--mut);">Il tuo saldo attuale: <b>${money(p.data.cash)}</b></p>
-          </div>
-        `;
-        const buy = p.bot ?
-          p.data.cash >= cost && Math.random() < (0.45 + (p.skill || 0.6) * 0.45) :
-          await ask('Proprietà in vendita', deedHtml, [
-            ['Acquista proprietà', true, 'btn pri'],
-            ['Metti all’asta', false, 'btn']
-          ]);
+      // Invisible clickable hitbox for raycast inspection
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(tf.w - 0.03, 0.06, tf.d - 0.03),
+        new THREE.MeshBasicMaterial({ color: '#ffd24a', transparent: true, opacity: 0 })
+      );
+      hit.position.y = 0.02;
+      hit.userData.id = i;
+      tg.add(hit);
+      tileHitMeshes.push(hit);
 
-        if (buy && p.data.cash >= cost) {
-          p.data.cash -= cost;
-          boardState.owners[i] = p.data.seat;
-          sfx.ok();
-          logMsg(`${esc(p.name)} acquista ${esc(name)} per ${money(cost)}.`);
-          if (c.price >= 300) {
-            await host.say(`Che colpo, ${p.name}! Hai acquistato ${name}! Un vero squalo della finanza!`, { mood: 'celebrate' });
-          }
-          paint(i);
+      // 3D Raised Color Strip for property groups
+      if (c.color && GROUP_HEX[c.color]) {
+        const strip = new THREE.Mesh(
+          new THREE.BoxGeometry(tf.w - 0.05, 0.035, 0.34),
+          mat(GROUP_HEX[c.color], { roughness: 0.32, metalness: 0.2 })
+        );
+        strip.position.set(0, 0.018, -tf.d / 2 + 0.19);
+        tg.add(strip);
+      }
+
+      // Building container (houses / hotel sit on the color strip)
+      const bGrp = new THREE.Group();
+      bGrp.position.set(0, 0.035, -tf.d / 2 + 0.19);
+      tg.add(bGrp);
+      buildingGroups.push(bGrp);
+
+      // Ownership 3D glowing marker pin (hidden until bought)
+      const ownPin = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.08, 0.04, 16),
+        mat('#ffffff', { metalness: 0.5, roughness: 0.2, emissive: '#ffffff', emissiveIntensity: 0.35 })
+      );
+      ownPin.position.set(0, 0.02, tf.d / 2 - 0.14);
+      ownPin.visible = false;
+      tg.add(ownPin);
+      ownerMarkers.push(ownPin);
+    }
+
+    // 3D Highlight Ring for currently selected / active space
+    const highlightRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.32, 0.42, 32),
+      new THREE.MeshBasicMaterial({ color: '#ffd24a', side: THREE.DoubleSide, toneMapped: false })
+    );
+    highlightRing.rotation.x = -Math.PI / 2;
+    highlightRing.position.set(4.4, Y_BOARD + 0.015, 4.4);
+    tableGroup.add(highlightRing);
+
+    // 3D Dice Pair on the Board
+    const die1 = createDie3D();
+    const die2 = createDie3D();
+    die1.position.set(-0.55, Y_BOARD + 0.22, 0.2);
+    die2.position.set(0.55, Y_BOARD + 0.22, -0.2);
+    tableGroup.add(die1, die2);
+
+    // Create 3D Tokens for each player on Space 0 (VIA!)
+    const tokenMeshes = P.map((p, idx) => {
+      const tm = createTokenMesh3D(p.token.id, p.color);
+      S.add(tm);
+      return tm;
+    });
+
+    function getTokenOffsetOnTile(playerIdx, tileIdx) {
+      const tf = getSpaceTransform(playerIdx >= 0 ? tileIdx : 0);
+      // Offset multiple tokens sharing a space so they never overlap
+      const sameTile = P.filter(q => !q.data.bankrupt && q.data.pos === tileIdx);
+      const k = Math.max(0, sameTile.findIndex(q => q.id === P[playerIdx].id));
+      const count = Math.max(1, sameTile.length);
+      const angle = (k / count) * Math.PI * 2 + 0.4;
+      const rad = count === 1 ? 0 : 0.22;
+      return {
+        x: tf.x + Math.cos(angle) * rad,
+        y: Y_BOARD,
+        z: tf.z + Math.sin(angle) * rad,
+        rotY: tf.rotY - Math.PI / 2
+      };
+    }
+
+    function syncTokensInstant() {
+      P.forEach((p, idx) => {
+        const m = tokenMeshes[idx];
+        if (p.data.bankrupt) {
+          m.visible = false;
           return;
         }
-        if (!buy) await auction(i);
-        return;
-      }
-      if (owner != null && owner !== p.data.seat) {
-        const due = rentDue({ ...boardState, current: p.data.seat }, i, dice, mult);
-        if (due) {
-          await pay(p, P[owner], due);
-          sfx.bad();
-          logMsg(`${esc(p.name)} paga ${money(due)} di affitto a ${esc(P[owner].name)}.`);
-          if (due >= 200) {
-            await host.say(`Porca p***a [BEEP]! ${money(due)} di affitto a ${P[owner].name}! Questa fa male al portafogli!`, { mood: 'wrong' });
+        m.visible = true;
+        const pos = getTokenOffsetOnTile(idx, p.data.pos);
+        m.position.set(pos.x, pos.y, pos.z);
+        m.rotation.y = pos.rotY;
+      });
+    }
+    syncTokensInstant();
+
+    // Sync 3D Houses, Hotels & Ownership markers on the 3D board
+    function sync3DBoardBuildings() {
+      for (let i = 0; i < 40; i++) {
+        const owner = boardState.owners[i];
+        const pin = ownerMarkers[i];
+        if (owner !== null && P[owner]) {
+          pin.visible = true;
+          const col = P[owner].color;
+          pin.material.color.set(col);
+          pin.material.emissive.set(col);
+          pin.material.opacity = boardState.mortgages.has(i) ? 0.35 : 1;
+        } else {
+          pin.visible = false;
+        }
+
+        const level = boardState.houses[i] || 0;
+        const bGrp = buildingGroups[i];
+        if (bGrp.userData.level !== level) {
+          bGrp.userData.level = level;
+          while (bGrp.children.length) bGrp.remove(bGrp.children[0]);
+          if (level === 5) {
+            const hotel = createHotelMesh3D();
+            hotel.scale.setScalar(0.01);
+            bGrp.add(hotel);
+            tween(hotel.scale, { x: 1, y: 1, z: 1 }, 0.45, 'overshoot');
+          } else if (level > 0) {
+            for (let hIdx = 0; hIdx < level; hIdx++) {
+              const hs = createHouseMesh3D();
+              hs.position.x = (hIdx - (level - 1) / 2) * 0.17;
+              hs.scale.setScalar(0.01);
+              bGrp.add(hs);
+              tween(hs.scale, { x: 1, y: 1, z: 1 }, 0.4, 'overshoot');
+            }
           }
         }
       }
     }
 
-    async function auction(i) {
-      const alive = active().filter(p => p.data.cash >= 10);
-      if (!alive.length) return;
-      let high = 0, leader = null, bidders = [...alive];
-      const propName = BOARD[i].itName || BOARD[i].name;
-
-      logMsg(`Asta per ${esc(propName)}!`);
-      while (bidders.length) {
-        const p = bidders.shift();
-        let bid = 0;
-        if (p.bot) {
-          const cap = Math.min(p.data.cash - 10, Math.floor(BOARD[i].price * (0.65 + (p.skill || 0.6) * 0.7)));
-          bid = cap > high ? Math.min(cap, high + 10) : 0;
-          await ctx.botThink(250, 500);
-        } else {
-          await ctx.passDevice(p);
-          const options = [['Rilancia +10 $', Math.min(p.data.cash, high + 10), 'btn pri']];
-          if (p.data.cash >= high + 50) options.push(['Rilancia +50 $', high + 50, 'btn']);
-          options.push([p === leader ? 'Tengo offerta' : 'Lascio asta', 0, 'btn']);
-          bid = await ask('Asta in corso', `<p>Oggetto: <b>${esc(propName)}</b> · Offerta attuale: <b>${money(high)}</b>${leader ? ` (${esc(leader.name)})` : ''}</p>`, options);
-        }
-        if (bid > high) {
-          if (leader && leader !== p) bidders.push(leader);
-          high = bid;
-          leader = p;
-        }
-      }
-      if (leader) {
-        leader.data.cash -= high;
-        boardState.owners[i] = leader.data.seat;
-        sfx.ok();
-        logMsg(`${esc(leader.name)} si aggiudica l’asta per ${money(high)}.`);
-        paint(i);
-      }
-    }
-
-    async function pay(from, to, amount) {
-      await raise(from, amount);
-      if (from.data.cash >= amount) {
-        from.data.cash -= amount;
-        if (to) to.data.cash += amount;
+    // ---- Camera Views ----
+    let camMode = 'dynamic'; // 'dynamic' | 'top' | 'wide' | 'pawn'
+    function applyCamera(targetSpaceIdx = null) {
+      const curP = P[boardState.current] || P[0];
+      const spIdx = targetSpaceIdx ?? curP.data.pos;
+      const tf = getSpaceTransform(spIdx);
+      if (camMode === 'top') {
+        S.go([0, 14.2, 0.01], [0, Y_BOARD, 0]);
+      } else if (camMode === 'wide') {
+        S.go([0, 9.6, 11.2], [0, 1.1, 0.3]);
+      } else if (camMode === 'pawn') {
+        const outDir = new THREE.Vector3(tf.x, 0, tf.z).normalize();
+        S.go([tf.x + outDir.x * 3.8, 3.6, tf.z + outDir.z * 3.8], [tf.x * 0.6, Y_BOARD + 0.2, tf.z * 0.6]);
       } else {
-        await bankrupt(from, to);
+        // Dynamic: angled view biased toward active quadrant
+        S.go([tf.x * 0.55, 8.2, Math.max(7.2, tf.z + 5.8)], [tf.x * 0.35, Y_BOARD, tf.z * 0.35]);
       }
     }
 
-    async function raise(p, amount) {
-      while (p.data.cash < amount) {
-        const buildings = ownedBy(boardState, p.data.seat).filter(i => canSell(boardState, i, p.data.seat));
-        const ids = ownedBy(boardState, p.data.seat).filter(i =>
-          !boardState.mortgages.has(i) && !(boardState.houses[i] || 0) &&
-          (!groupFor(i) || GROUPS[groupFor(i)].every(j => !(boardState.houses[j] || 0))));
+    // Camera Switcher Floating Bar on Right
+    const camBar = h('div', 'camBar3D');
+    const CAM_MODES = [
+      ['dynamic', '🎥 Dinamica'],
+      ['wide', '👁️ Panoramica'],
+      ['top', '🗺️ Dall’Alto'],
+      ['pawn', '🔍 Zoom Pedina']
+    ];
+    function renderCamBar() {
+      camBar.replaceChildren(...CAM_MODES.map(([id, label]) => {
+        const b = h('button', 'pill btn' + (camMode === id ? ' pri' : ''), label);
+        b.style.fontSize = '0.76rem';
+        b.onclick = () => {
+          camMode = id;
+          sfx.click();
+          renderCamBar();
+          applyCamera();
+        };
+        return b;
+      }));
+    }
+    renderCamBar();
+    ctx.sideAdd(camBar);
 
-        if (!buildings.length && !ids.length) break;
+    // ---- Left Information Sidebar (.sidePanelLeft) ----
+    let inspectedIdx = 0;
+    let log = ['Benvenuti al tavolo 3D di Monopoly Italia!'];
+    let finished = false;
+    let deckChance = shuffle(CHANCE);
+    let deckChest = shuffle(CHEST);
 
-        const options = [
-          ...buildings.map(i => [`Vendi casa su ${BOARD[i].itName || BOARD[i].name} (+${money(BOARD[i].house / 2)})`, 'sell:' + i]),
-          ...ids.map(i => [`Ipoteca ${BOARD[i].itName || BOARD[i].name} (+${money(mortgageValue(i))})`, 'mort:' + i]),
-          ['Dichiara bancarotta', null, 'btn danger']
-        ];
-        let action;
+    const leftPanel = h('aside', 'sidePanelLeft');
+    ctx.sideAdd(leftPanel);
+
+    const logMsg = msg => {
+      log.unshift(msg);
+      log = log.slice(0, 8);
+      renderLeftPanel();
+    };
+
+    function selectInspectSpace(idx) {
+      inspectedIdx = ((idx % 40) + 40) % 40;
+      const tf = getSpaceTransform(inspectedIdx);
+      highlightRing.position.set(tf.x, Y_BOARD + 0.02, tf.z);
+      renderLeftPanel();
+    }
+
+    // Raycast click on 3D board tiles to inspect any property
+    const onPointerDown3D = e => {
+      if (e.target.id !== 'gl' || ctx.dead) return;
+      const hit = raycast(tileHitMeshes, e);
+      if (hit && hit.userData.id !== undefined) {
+        sfx.click();
+        selectInspectSpace(hit.userData.id);
+      }
+    };
+    addEventListener('pointerdown', onPointerDown3D);
+    ctx.onExit(() => removeEventListener('pointerdown', onPointerDown3D));
+
+    function renderDeedInspector(idx) {
+      const c = BOARD[idx];
+      const ownerIdx = boardState.owners[idx];
+      const owner = ownerIdx !== null ? P[ownerIdx] : null;
+      const level = boardState.houses[idx] || 0;
+      const isMort = boardState.mortgages.has(idx);
+      const name = c.itName || c.name;
+      const hdrCol = GROUP_HEX[c.color] || (c.type === 'railroad' ? '#334155' : c.type === 'utility' ? '#0284c7' : '#475569');
+
+      let bodyHtml = '';
+      if (c.type === 'property') {
+        bodyHtml = `
+          <div class="deedRow"><span>Prezzo d’acquisto</span><b>${money(c.price)}</b></div>
+          <div class="deedRow"><span>Rendita solo terreno</span><b>${money(c.rent[0])}</b></div>
+          <div class="deedRow"><span>Rendita col Monopolio</span><b>${money(c.rent[0] * 2)}</b></div>
+          <div class="deedRow"><span>Con 1 Casa 🏠</span><b>${money(c.rent[1])}</b></div>
+          <div class="deedRow"><span>Con 2 Case 🏠🏠</span><b>${money(c.rent[2])}</b></div>
+          <div class="deedRow"><span>Con 3 Case 🏠🏠🏠</span><b>${money(c.rent[3])}</b></div>
+          <div class="deedRow"><span>Con 4 Case 🏠🏠🏠🏠</span><b>${money(c.rent[4])}</b></div>
+          <div class="deedRow" style="color:#f87171"><span>Con ALBERGO 🏨</span><b>${money(c.rent[5])}</b></div>
+          <div class="deedRow"><span>Costo ogni Casa/Hotel</span><b>${money(c.houseCost)}</b></div>
+          <div class="deedRow"><span>Valore Ipotecario</span><b>${money(mortgageValue(idx))}</b></div>
+        `;
+      } else if (c.type === 'railroad') {
+        bodyHtml = `
+          <div class="deedRow"><span>Prezzo Stazione</span><b>${money(c.price)}</b></div>
+          <div class="deedRow"><span>Rendita (1 stazione)</span><b>25 $</b></div>
+          <div class="deedRow"><span>Rendita (2 stazioni)</span><b>50 $</b></div>
+          <div class="deedRow"><span>Rendita (3 stazioni)</span><b>100 $</b></div>
+          <div class="deedRow"><span>Rendita (4 stazioni)</span><b>200 $</b></div>
+          <div class="deedRow"><span>Valore Ipotecario</span><b>${money(mortgageValue(idx))}</b></div>
+        `;
+      } else if (c.type === 'utility') {
+        bodyHtml = `
+          <div class="deedRow"><span>Prezzo Società</span><b>${money(c.price)}</b></div>
+          <div class="deedRow"><span>1 Società posseduta</span><b>4 × dadi</b></div>
+          <div class="deedRow"><span>2 Società possedute</span><b>10 × dadi</b></div>
+          <div class="deedRow"><span>Valore Ipotecario</span><b>${money(mortgageValue(idx))}</b></div>
+        `;
+      } else {
+        bodyHtml = `<div style="padding:4px 0;color:var(--mut)">Casella speciale del tabellone (${c.type.toUpperCase()}).</div>`;
+      }
+
+      const curP = P[boardState.current];
+      let actionsHtml = '';
+      if (owner && owner.id === curP?.id && !curP.bot) {
+        const canB = canBuild(boardState, curP.id, idx) && curP.data.cash >= (c.houseCost || 0);
+        const canS = canSell(boardState, curP.id, idx);
+        const canM = level === 0 && !isMort;
+        const canU = isMort && curP.data.cash >= unmortgageCost(idx);
+        actionsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          ${canB ? `<button type="button" class="btn pri act-build" style="padding:4px 10px;font-size:0.75rem">+🏠 Costruisci (${money(c.houseCost)})</button>` : ''}
+          ${canS ? `<button type="button" class="btn act-sell" style="padding:4px 10px;font-size:0.75rem">-🏠 Vendi (+${money(c.houseCost / 2)})</button>` : ''}
+          ${canM ? `<button type="button" class="btn act-mort" style="padding:4px 10px;font-size:0.75rem">🏦 Ipoteca (+${money(mortgageValue(idx))})</button>` : ''}
+          ${canU ? `<button type="button" class="btn pri act-unmort" style="padding:4px 10px;font-size:0.75rem">🔓 Riscatta (${money(unmortgageCost(idx))})</button>` : ''}
+        </div>`;
+      }
+
+      return `
+        <div class="deedCard3D">
+          <div class="deedHeader" style="background:${hdrCol}">
+            <div style="font-size:0.65rem;opacity:0.85;letter-spacing:0.12em">CONTRATTO · CASELLA #${idx}</div>
+            <div style="font-size:1.02rem">${esc(name)}</div>
+          </div>
+          <div class="deedBody">
+            <div class="deedRow">
+              <span>Stato</span>
+              <b style="color:${owner ? owner.color : '#4ade80'}">${owner ? `${esc(owner.name)}${isMort ? ' (IPOTECATA)' : level === 5 ? ' · 🏨 HOTEL' : level > 0 ? ` · ${'🏠'.repeat(level)}` : ''}` : 'Libera in vendita'}</b>
+            </div>
+            ${bodyHtml}
+            ${actionsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLeftPanel() {
+      const curP = P[boardState.current] || P[0];
+      const playersHtml = P.map((p, idx) => {
+        const props = ownedBy(boardState, idx);
+        const badges = props.map(prIdx => {
+          const sp = BOARD[prIdx];
+          const lv = boardState.houses[prIdx] || 0;
+          const mort = boardState.mortgages.has(prIdx);
+          const gc = GROUP_HEX[sp.color] || '#94a3b8';
+          return `<span class="spPropBadge" data-sp="${prIdx}" style="--gc:${gc};${mort ? 'opacity:0.45;text-decoration:line-through' : ''}" title="Clicca per ispezionare">${esc(sp.itName || sp.name)}${lv === 5 ? '🏨' : lv > 0 ? `(${lv}🏠)` : ''}</span>`;
+        }).join('');
+
+        return `
+          <div class="spPlayerCard ${idx === boardState.current ? 'active' : ''} ${p.data.bankrupt ? 'bankrupt' : ''}" style="--pc:${p.color}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:700;font-size:0.92rem;display:flex;align-items:center;gap:6px">
+                <span style="font-size:1.15rem">${p.token.icon}</span>
+                <span>${esc(p.name)}${p.bot ? ' <small style="color:var(--mut)">CPU</small>' : ''}</span>
+              </span>
+              <b style="color:#4ade80;font-size:0.95rem">${money(p.data.cash)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.74rem;color:var(--mut)">
+              <span>📍 ${esc(BOARD[p.data.pos].itName || BOARD[p.data.pos].name)}</span>
+              <span>Patrimonio: ${money(netWorth(boardState, idx))}${p.data.jail ? ' · ⛓️ Prigione' : ''}</span>
+            </div>
+            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">${badges}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      leftPanel.innerHTML = `
+        <div class="spSection">
+          <div class="spTitle">
+            <span>👥 Giocatori & Pedine 3D</span>
+            <button type="button" class="pill btn sp-token-btn" style="padding:2px 8px;font-size:0.7rem">🎩 Cambia Pedina</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px">${playersHtml}</div>
+        </div>
+
+        <div class="spSection">
+          <div class="spTitle">
+            <span>📜 Ispezione Contratto</span>
+            <span>🏠 ${boardState.bank.houses}/32 · 🏨 ${boardState.bank.hotels}/12</span>
+          </div>
+          ${renderDeedInspector(inspectedIdx)}
+        </div>
+
+        <div class="spSection">
+          <div class="spTitle"><span>📰 Cronaca del Tavolo</span></div>
+          <div style="font-size:0.78rem;color:#cbd5e1;display:flex;flex-direction:column;gap:4px">
+            ${log.map(l => `<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05)">${esc(l)}</div>`).join('')}
+          </div>
+        </div>
+      `;
+
+      // Bind property badge clicks
+      leftPanel.querySelectorAll('.spPropBadge').forEach(el => {
+        el.onclick = () => {
+          sfx.click();
+          selectInspectSpace(Number(el.dataset.sp));
+        };
+      });
+
+      // Bind token switcher modal
+      const tokBtn = leftPanel.querySelector('.sp-token-btn');
+      if (tokBtn) {
+        tokBtn.onclick = () => openTokenPickerModal();
+      }
+
+      // Bind direct build/sell/mortgage buttons inside the deed inspector
+      const bBuild = leftPanel.querySelector('.act-build');
+      if (bBuild) bBuild.onclick = () => {
+        const sp = BOARD[inspectedIdx];
+        if (build(boardState, curP.id, inspectedIdx)) {
+          curP.data.cash -= sp.houseCost;
+          sfx.win();
+          logMsg(`${curP.name} costruisce su ${sp.itName || sp.name}!`);
+          sync3DBoardBuildings();
+          syncScores();
+          renderLeftPanel();
+        }
+      };
+      const bSell = leftPanel.querySelector('.act-sell');
+      if (bSell) bSell.onclick = () => {
+        const sp = BOARD[inspectedIdx];
+        const refund = sellBuilding(boardState, curP.id, inspectedIdx);
+        if (refund > 0) {
+          curP.data.cash += refund;
+          sfx.click();
+          logMsg(`${curP.name} vende una costruzione su ${sp.itName || sp.name} (+${money(refund)}).`);
+          sync3DBoardBuildings();
+          syncScores();
+          renderLeftPanel();
+        }
+      };
+      const bMort = leftPanel.querySelector('.act-mort');
+      if (bMort) bMort.onclick = () => {
+        const sp = BOARD[inspectedIdx];
+        const val = mortgageValue(inspectedIdx);
+        boardState.mortgages.add(inspectedIdx);
+        curP.data.cash += val;
+        sfx.click();
+        logMsg(`${curP.name} ipoteca ${sp.itName || sp.name} per ${money(val)}.`);
+        sync3DBoardBuildings();
+        syncScores();
+        renderLeftPanel();
+      };
+      const bUnmort = leftPanel.querySelector('.act-unmort');
+      if (bUnmort) bUnmort.onclick = () => {
+        const sp = BOARD[inspectedIdx];
+        const cost = unmortgageCost(inspectedIdx);
+        if (curP.data.cash >= cost) {
+          boardState.mortgages.delete(inspectedIdx);
+          curP.data.cash -= cost;
+          sfx.ok();
+          logMsg(`${curP.name} riscatta l’ipoteca su ${sp.itName || sp.name} (-${money(cost)}).`);
+          sync3DBoardBuildings();
+          syncScores();
+          renderLeftPanel();
+        }
+      };
+    }
+
+    function openTokenPickerModal() {
+      const curP = P.find(p => !p.bot) || P[boardState.current] || P[0];
+      const m = h('div', 'ov');
+      const card = h('div', 'card');
+      card.innerHTML = `
+        <p class="kicker">Personalizzazione 3D</p>
+        <h2 class="disp">Scegli la Pedina 3D di ${esc(curP.name)}</h2>
+        <div class="opts" style="grid-template-columns:repeat(2,1fr);margin:12px 0"></div>
+      `;
+      const box = card.querySelector('.opts');
+      MONOPOLY_TOKENS.forEach(tok => {
+        const b = h('button', 'opt' + (curP.token.id === tok.id ? ' picked' : ''), `<span style="font-size:1.5rem">${tok.icon}</span><span><b>${tok.label}</b></span>`);
+        b.onclick = () => {
+          curP.token = tok;
+          curP.data.tokenId = tok.id;
+          const idx = P.indexOf(curP);
+          S.scene.remove(tokenMeshes[idx]);
+          tokenMeshes[idx] = createTokenMesh3D(tok.id, curP.color);
+          S.add(tokenMeshes[idx]);
+          syncTokensInstant();
+          renderLeftPanel();
+          sfx.ok();
+          m.remove();
+        };
+        box.append(b);
+      });
+      const close = h('button', 'btn', 'Chiudi');
+      close.onclick = () => m.remove();
+      card.append(close);
+      m.append(card);
+      ctx.ui.append(m);
+    }
+
+    function syncScores() {
+      P.forEach((p, idx) => {
+        p.score = p.data.bankrupt ? 0 : netWorth(boardState, idx);
+      });
+      ctx.scoreboard();
+    }
+
+    // ---- 3D Real Dice Throw Animation ----
+    async function roll3DDice(d1, d2) {
+      // Focus camera on the 3D board for the throw
+      S.go([0, 7.6, 6.8], [0, Y_BOARD, 0]);
+      sfx.dice();
+
+      const rot1 = DIE_TOP_ROT[d1] || DIE_TOP_ROT[1];
+      const rot2 = DIE_TOP_ROT[d2] || DIE_TOP_ROT[1];
+
+      // Start dice above the side of the board
+      die1.position.set(-2.6, Y_BOARD + 2.4, 2.2);
+      die2.position.set(-1.8, Y_BOARD + 2.7, 2.5);
+      die1.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+      die2.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+
+      // Parabolic bounce 1
+      await Promise.all([
+        tween(die1.position, { x: -0.9, y: Y_BOARD + 0.22, z: 0.4 }, 0.36, 'in'),
+        tween(die2.position, { x: 0.3, y: Y_BOARD + 0.22, z: -0.1 }, 0.38, 'in'),
+        tween(die1.rotation, { x: rot1.x + Math.PI * 4, y: Math.PI * 2, z: rot1.z + Math.PI * 2 }, 0.72, 'out'),
+        tween(die2.rotation, { x: rot2.x + Math.PI * 4, y: -Math.PI * 2, z: rot2.z + Math.PI * 2 }, 0.75, 'out')
+      ]);
+      sfx.dice();
+      // Bounce 2 (rebound arc)
+      await Promise.all([
+        tween(die1.position, { x: -0.65, y: Y_BOARD + 0.75, z: 0.15 }, 0.18, 'out'),
+        tween(die2.position, { x: 0.55, y: Y_BOARD + 0.82, z: -0.25 }, 0.19, 'out')
+      ]);
+      // Settle flat on exact face
+      await Promise.all([
+        tween(die1.position, { x: -0.52, y: Y_BOARD + 0.22, z: 0.1 }, 0.2, 'bounce'),
+        tween(die2.position, { x: 0.62, y: Y_BOARD + 0.22, z: -0.2 }, 0.22, 'bounce')
+      ]);
+      die1.rotation.set(rot1.x, 0.25, rot1.z);
+      die2.rotation.set(rot2.x, -0.3, rot2.z);
+      await ctx.sleep(450);
+    }
+
+    // ---- 3D Pawn Step-by-Step Hopping Animation ----
+    async function animatePawnSteps3D(player, steps) {
+      const pIdx = P.indexOf(player);
+      const mesh = tokenMeshes[pIdx];
+      const total = Math.abs(steps);
+      const dir = steps >= 0 ? 1 : -1;
+
+      for (let s = 0; s < total; s++) {
+        const prevPos = player.data.pos;
+        player.data.pos = (player.data.pos + dir + 40) % 40;
+        if (dir > 0 && player.data.pos === 0 && prevPos !== 0) {
+          player.data.cash += GO_SALARY;
+          sfx.win();
+          S.burst(PAL.goldHi, 90, 2.5);
+          logMsg(`${player.name} transita dal VIA! e ritira ${money(GO_SALARY)}!`);
+        }
+        const target = getTokenOffsetOnTile(pIdx, player.data.pos);
+        const tf = getSpaceTransform(player.data.pos);
+        highlightRing.position.set(tf.x, Y_BOARD + 0.02, tf.z);
+
+        // Camera smoothly follows the hopping 3D token
+        if (camMode === 'dynamic' || camMode === 'pawn') {
+          S.go([tf.x * 0.6, 5.6, Math.max(6.2, tf.z + 4.8)], [tf.x * 0.5, Y_BOARD, tf.z * 0.5]);
+        }
+
+        mesh.rotation.y = target.rotY;
+        const midX = (mesh.position.x + target.x) / 2;
+        const midZ = (mesh.position.z + target.z) / 2;
+        await tween(mesh.position, { x: midX, y: Y_BOARD + 0.52, z: midZ }, 0.11, 'out');
+        await tween(mesh.position, { x: target.x, y: Y_BOARD, z: target.z }, 0.11, 'in');
+        sfx.tick();
+      }
+      syncTokensInstant();
+      selectInspectSpace(player.data.pos);
+      applyCamera(player.data.pos);
+    }
+
+    // ---- Modals for Buying, Auctions, Trades & Cards ----
+    const askChoice = (player, title, subtitle, buttons, botPick) => {
+      if (player.bot) return Promise.resolve(botPick());
+      return new Promise(res => {
+        const card = h('div', 'card');
+        card.style.maxWidth = '520px';
+        card.innerHTML = `<div class="meta"><span>${esc(title)}</span><span style="color:${player.color}">${player.token.icon} ${esc(player.name)} · ${money(player.data.cash)}</span></div><p style="margin:6px 0 12px">${subtitle}</p>`;
+        const row = h('div', 'row');
+        buttons.forEach(b => {
+          const btn = h('button', 'btn ' + (b.pri ? 'pri' : ''), b.label);
+          btn.disabled = !!b.disabled;
+          btn.onclick = () => { sfx.click(); res(b.value); };
+          row.append(btn);
+        });
+        card.append(row);
+        ctx.dock(card);
+      });
+    };
+
+    const activePlayers = () => P.filter(p => !p.data.bankrupt && p.alive && !p.retired);
+
+    async function runAuction(spaceIdx) {
+      const space = BOARD[spaceIdx];
+      const dispName = space.itName || space.name;
+      const contenders = new Set(activePlayers().map(p => p.id));
+      let highBid = Math.max(10, Math.floor(space.price * 0.25));
+      let leader = null;
+      let passCount = 0;
+      const order = activePlayers().map(p => p.id);
+      let turnIdx = 0;
+
+      while (contenders.size > 1 || (contenders.size === 1 && leader === null)) {
+        const pid = order[turnIdx % order.length];
+        turnIdx++;
+        if (!contenders.has(pid)) continue;
+        const p = P[pid];
+        if (p.data.cash <= highBid) {
+          contenders.delete(pid);
+          continue;
+        }
+        let act;
         if (p.bot) {
-          action = buildings.length ? 'sell:' + buildings[0] : 'mort:' + ids.sort((a, b) => mortgageValue(b) - mortgageValue(a))[0];
+          await ctx.botThink(200, 450);
+          const maxWilling = space.price * (0.85 + (p.skill || 0.6) * 0.45);
+          act = (highBid + 15 <= p.data.cash && highBid < maxWilling) ? 'bid' : 'pass';
         } else {
-          action = await ask('Fondi insufficienti', `<p>Mancano ${money(amount - p.data.cash)}. Ipoteca o vendi edifici.</p>`, options);
+          act = await askChoice(
+            p,
+            `🔨 Asta per ${dispName}`,
+            `Offerta attuale: <b>${money(highBid)}</b> ${leader !== null ? `(di ${esc(P[leader].name)})` : '(nessun offerente)'}`,
+            [
+              { label: `Rilancia (+15 $ → ${money(highBid + 15)})`, value: 'bid', pri: true, disabled: p.data.cash < highBid + 15 },
+              { label: 'Passa', value: 'pass' }
+            ],
+            () => 'pass'
+          );
         }
-        if (action == null) break;
-        const [kind, n] = action.split(':');
-        const id = Number(n);
-        if (kind === 'sell') sellBuilding(boardState, id, p.data.seat);
-        else {
-          boardState.mortgages.add(id);
-          p.data.cash += mortgageValue(id);
+        if (act === 'bid') {
+          highBid += 15;
+          leader = pid;
+          passCount = 0;
+        } else {
+          contenders.delete(pid);
+          passCount++;
+          if (leader !== null && contenders.size === 1 && contenders.has(leader)) break;
         }
-        paint(id);
+        if (passCount > order.length * 2) break;
+      }
+
+      if (leader !== null) {
+        const w = P[leader];
+        w.data.cash -= highBid;
+        boardState.owners[spaceIdx] = w.id;
+        sfx.win();
+        logMsg(`${w.name} si aggiudica ${dispName} all’asta per ${money(highBid)}!`);
+        sync3DBoardBuildings();
+      } else {
+        logMsg(`Nessuna offerta all’asta per ${dispName}.`);
       }
     }
 
-    async function bankrupt(p, creditor) {
-      p.data.bankrupt = true;
-      sfx.bad();
-      logMsg(`${esc(p.name)} ha dichiarato bancarotta.`);
-      await host.say(`Bancarotta totale per ${p.name}! Fuori dai giochi con le tasche vuote!`, { mood: 'wrong' });
+    async function buyOrAuction(player, spaceIdx) {
+      const space = BOARD[spaceIdx];
+      const dispName = space.itName || space.name;
+      selectInspectSpace(spaceIdx);
 
-      const assets = ownedBy(boardState, p.data.seat);
-      for (const i of assets) {
-        if (creditor) {
-          boardState.owners[i] = creditor.data.seat;
-          if (boardState.mortgages.has(i)) creditor.data.cash -= Math.ceil(mortgageValue(i) * 0.1);
-        } else {
-          boardState.owners[i] = null;
-          boardState.mortgages.delete(i);
-          const level = boardState.houses[i] || 0;
-          if (level === 5) boardState.bank.hotels++;
-          else boardState.bank.houses += level;
+      let buy = false;
+      if (player.bot) {
+        await ctx.botThink(350, 700);
+        buy = player.data.cash >= space.price + 80;
+      } else {
+        const pick = await askChoice(
+          player,
+          `📜 ${dispName} (${money(space.price)})`,
+          `Proprietà libera! Vuoi acquistarla per <b>${money(space.price)}</b> o mandarla all’asta?`,
+          [
+            { label: `Compra (${money(space.price)})`, value: 'buy', pri: true, disabled: player.data.cash < space.price },
+            { label: 'Manda all’Asta', value: 'auction' }
+          ],
+          () => 'buy'
+        );
+        buy = pick === 'buy' && player.data.cash >= space.price;
+      }
+
+      if (buy) {
+        player.data.cash -= space.price;
+        boardState.owners[spaceIdx] = player.id;
+        sfx.ok();
+        logMsg(`${player.name} acquista ${dispName} per ${money(space.price)}.`);
+        sync3DBoardBuildings();
+        syncScores();
+        renderLeftPanel();
+      } else {
+        await runAuction(spaceIdx);
+        syncScores();
+        renderLeftPanel();
+      }
+    }
+
+    async function ensureCash(player, needed) {
+      while (player.data.cash < needed) {
+        // Sell houses first
+        const buildable = ownedBy(boardState, player.id).filter(i => canSell(boardState, player.id, i));
+        if (buildable.length > 0) {
+          const idx = buildable[0];
+          const refund = sellBuilding(boardState, player.id, idx);
+          player.data.cash += refund;
+          logMsg(`${player.name} vende una casa su ${BOARD[idx].itName || BOARD[idx].name} (+${money(refund)}).`);
+          sync3DBoardBuildings();
+          continue;
+        }
+        // Mortgage unmortgaged properties
+        const mortable = ownedBy(boardState, player.id).filter(i => !boardState.mortgages.has(i) && (boardState.houses[i] || 0) === 0);
+        if (mortable.length > 0) {
+          const idx = mortable[0];
+          const val = mortgageValue(idx);
+          boardState.mortgages.add(idx);
+          player.data.cash += val;
+          logMsg(`${player.name} ipoteca ${BOARD[idx].itName || BOARD[idx].name} (+${money(val)}).`);
+          sync3DBoardBuildings();
+          continue;
+        }
+        break;
+      }
+      return player.data.cash >= needed;
+    }
+
+    async function chargePlayer(player, amount, creditor = null, reason = '') {
+      const ok = await ensureCash(player, amount);
+      if (ok) {
+        player.data.cash -= amount;
+        if (creditor) creditor.data.cash += amount;
+        sfx.bad();
+        logMsg(`${player.name} paga ${money(amount)}${creditor ? ` a ${creditor.name}` : ''} (${reason}).`);
+        if (amount >= 150) await host.react('wrong', player, { value: money(amount) });
+      } else {
+        // Bankruptcy
+        player.data.bankrupt = true;
+        player.alive = false;
+        const leftover = Math.max(0, player.data.cash);
+        player.data.cash = 0;
+        if (creditor) creditor.data.cash += leftover;
+        ownedBy(boardState, player.id).forEach(i => {
           boardState.houses[i] = 0;
-        }
+          boardState.owners[i] = creditor ? creditor.id : null;
+          if (!creditor) boardState.mortgages.delete(i);
+        });
+        sync3DBoardBuildings();
+        syncTokensInstant();
+        logMsg(`💥 ${player.name} dichiara BANCAROTTA!`);
+        await host.react('lose', player);
       }
-      if (creditor) creditor.data.cash += p.data.cash;
-      p.data.cash = 0;
-      paint();
-
-      if (!creditor) {
-        for (const i of assets) await auction(i);
-      }
-      if (active().length <= 1) await finishGame('Resta un solo magnate sul tabellone!');
+      syncScores();
+      renderLeftPanel();
     }
 
-    async function turn(p) {
-      if (p.data.bankrupt) return;
-      await ctx.passDevice(p);
-      ctx.setActive(p);
-      paint(p.data.pos);
+    async function sendToJail(player) {
+      player.data.pos = 10;
+      player.data.jail = 1;
+      player.data.doubles = 0;
+      sfx.bad();
+      syncTokensInstant();
+      selectInspectSpace(10);
+      applyCamera(10);
+      logMsg(`🚓 ${player.name} finisce dritto in Prigione!`);
+      await host.say(`Sirene spiegate! ${player.name} finisce dietro le sbarre senza passare dal VIA!`, { mood: 'sad', to: null });
+    }
 
-      if (!p.bot && !await chooseManage(p)) return;
+    async function drawCard3D(player, kind, diceTotal) {
+      const deck3D = kind === 'chance' ? chanceDeck3D : chestDeck3D;
+      tween(deck3D.scale, { x: 1.25, y: 1.5, z: 1.25 }, 0.25, 'overshoot').then(() => tween(deck3D.scale, { x: 1, y: 1, z: 1 }, 0.25));
+      let deck = kind === 'chance' ? deckChance : deckChest;
+      if (!deck.length) {
+        deck = shuffle(kind === 'chance' ? CHANCE : CHEST);
+        if (kind === 'chance') deckChance = deck; else deckChest = deck;
+      }
+      const card = deck.shift();
+      const title = kind === 'chance' ? '⚡ IMPREVISTI' : '📦 PROBABILITÀ';
+      logMsg(`${player.name} pesca ${title}: «${card.text}»`);
+      await host.say(`${title} per ${player.name}: «${card.text}»`, { mood: 'surprised' });
 
-      let extra = true, rolls = 0;
-      while (extra && !p.data.bankrupt) {
-        extra = false;
-        const [d1, d2] = await rollDiceAnim();
+      if (card.act === 'cash') {
+        if (card.amount >= 0) {
+          player.data.cash += card.amount;
+          sfx.ok();
+        } else {
+          await chargePlayer(player, -card.amount, null, title);
+        }
+      } else if (card.act === 'jailFree') {
+        player.data.jailCard += 1;
+        sfx.win();
+      } else if (card.act === 'jail') {
+        await sendToJail(player);
+      } else if (card.act === 'each') {
+        for (const other of activePlayers()) {
+          if (other.id === player.id) continue;
+          if (card.amount > 0) {
+            await chargePlayer(other, card.amount, player, title);
+          } else {
+            await chargePlayer(player, -card.amount, other, title);
+          }
+        }
+      } else if (card.act === 'repairs') {
+        let fee = 0;
+        for (const idx of ownedBy(boardState, player.id)) {
+          const lv = boardState.houses[idx] || 0;
+          if (lv === 5) fee += card.hotel;
+          else fee += lv * card.house;
+        }
+        if (fee > 0) await chargePlayer(player, fee, null, 'Riparazioni edilizie');
+      } else if (card.act === 'move' || card.act === 'back' || card.act === 'nearestRail' || card.act === 'nearestUtil') {
+        const mv = resolveCardMovement(player.data.pos, card);
+        if (card.act === 'back') {
+          await animatePawnSteps3D(player, -card.steps);
+        } else {
+          const steps = (mv.pos - player.data.pos + 40) % 40;
+          await animatePawnSteps3D(player, steps);
+        }
+        await resolveSpace3D(player, diceTotal, mv);
+      }
+      syncScores();
+      renderLeftPanel();
+    }
+
+    async function resolveSpace3D(player, diceTotal, specialMove = null) {
+      const idx = player.data.pos;
+      const space = BOARD[idx];
+      const dispName = space.itName || space.name;
+      selectInspectSpace(idx);
+
+      if (space.type === 'go' || space.type === 'jail' || space.type === 'parking') return;
+      if (space.type === 'goToJail') {
+        await sendToJail(player);
+        return;
+      }
+      if (space.type === 'tax') {
+        await chargePlayer(player, space.amount, null, dispName);
+        return;
+      }
+      if (space.type === 'chance') {
+        await drawCard3D(player, 'chance', diceTotal);
+        return;
+      }
+      if (space.type === 'chest') {
+        await drawCard3D(player, 'chest', diceTotal);
+        return;
+      }
+
+      if (['property', 'railroad', 'utility'].includes(space.type)) {
+        const ownerId = boardState.owners[idx];
+        if (ownerId === null) {
+          await buyOrAuction(player, idx);
+        } else if (ownerId !== player.id && !boardState.mortgages.has(idx)) {
+          const owner = P[ownerId];
+          const rent = rentDue(boardState, idx, diceTotal, {
+            railMultiplier: specialMove?.railMultiplier || 1,
+            utilityMultiplier: specialMove?.utilityMultiplier || null
+          });
+          if (rent > 0) {
+            await chargePlayer(player, rent, owner, `Affitto su ${dispName}`);
+          }
+        }
+      }
+    }
+
+    // Bot automatic building phase
+    function runBotManagement(player) {
+      for (const idx of ownedBy(boardState, player.id)) {
+        const sp = BOARD[idx];
+        if (sp.type === 'property' && canBuild(boardState, player.id, idx) && player.data.cash >= sp.houseCost + 220) {
+          build(boardState, player.id, idx);
+          player.data.cash -= sp.houseCost;
+          logMsg(`${player.name} costruisce su ${sp.itName || sp.name}.`);
+          sync3DBoardBuildings();
+        }
+      }
+    }
+
+    // Human management dock between rolls / before ending turn
+    async function humanActionDock(player, phaseLabel, primaryLabel) {
+      return new Promise(res => {
+        const drawDock = () => {
+          const card = h('div', 'card');
+          card.style.maxWidth = '640px';
+          card.innerHTML = `
+            <div class="meta">
+              <span>${esc(phaseLabel)}</span>
+              <span style="color:${player.color};font-weight:700">${player.token.icon} ${esc(player.name)} · Saldo: ${money(player.data.cash)}</span>
+            </div>
+          `;
+          const row = h('div', 'row');
+          const mainBtn = h('button', 'btn pri', primaryLabel);
+          mainBtn.onclick = () => { sfx.click(); res('go'); };
+
+          const tokBtn = h('button', 'btn', '🎩 Pedina 3D');
+          tokBtn.onclick = () => { sfx.click(); openTokenPickerModal(); };
+
+          const rulesBtn = h('button', 'btn', '📖 Regole');
+          rulesBtn.onclick = () => { sfx.click(); ctx.showRules?.(); };
+
+          row.append(mainBtn, tokBtn, rulesBtn);
+          card.append(row);
+          ctx.dock(card);
+        };
+        drawDock();
+      });
+    }
+
+    // Handle retire hook
+    ctx.onPlayerRetired = async p => {
+      p.data.bankrupt = true;
+      p.alive = false;
+      ownedBy(boardState, p.id).forEach(i => {
+        boardState.houses[i] = 0;
+        boardState.owners[i] = null;
+        boardState.mortgages.delete(i);
+      });
+      sync3DBoardBuildings();
+      syncTokensInstant();
+      logMsg(`⚐ ${p.name} si è ritirato dal tavolo.`);
+      renderLeftPanel();
+    };
+
+    // ---- Main 3D Game Loop ----
+    syncScores();
+    renderLeftPanel();
+    applyCamera(0);
+    await host.react('intro');
+
+    while (!finished && !ctx.dead) {
+      const alive = activePlayers();
+      if (alive.length <= 1) {
+        const winner = alive[0] || P[0];
+        finished = true;
+        await host.react('win', winner, { value: money(netWorth(boardState, winner.id)) });
+        ctx.finish({
+          win: !winner.bot,
+          title: `${winner.name} trionfa a Monopoly 3D!`,
+          lines: [`Patrimonio finale: ${money(netWorth(boardState, winner.id))}`],
+          ranking: P.map(p => ({ player: p, score: p.data.bankrupt ? 0 : netWorth(boardState, p.id) }))
+        });
+        return;
+      }
+
+      const player = P[boardState.current];
+      if (!player || player.data.bankrupt || !player.alive || player.retired) {
+        boardState.current = (boardState.current + 1) % P.length;
+        continue;
+      }
+
+      ctx.setActive(player);
+      ctx.hud(`<span class="pill">${player.token.icon} Turno di <b style="color:${player.color}">${esc(player.name)}</b> · <b>${money(player.data.cash)}</b></span>`);
+      selectInspectSpace(player.data.pos);
+      applyCamera(player.data.pos);
+
+      if (!player.bot) await ctx.passDevice(player);
+
+      let rollAgain = true;
+      player.data.doubles = 0;
+
+      while (rollAgain && !player.data.bankrupt && !ctx.dead) {
+        rollAgain = false;
+
+        if (!player.bot) {
+          await humanActionDock(player, 'Tocca a te lanciare i dadi 3D', '🎲 Lancia i Dadi 3D');
+        } else {
+          await ctx.botThink(450, 900);
+        }
+        if (ctx.dead || player.data.bankrupt) break;
+
+        // Prison check before roll
+        if (player.data.jail > 0) {
+          if (player.data.jailCard > 0) {
+            player.data.jailCard--;
+            player.data.jail = 0;
+            logMsg(`${player.name} usa il tagliando «Uscita Gratis di Prigione»!`);
+          } else if (!player.bot) {
+            const jPick = await askChoice(
+              player,
+              '⛓️ Sei in Prigione',
+              `Turno ${player.data.jail}/3: vuoi pagare 50 $ di cauzione o tentare i dadi doppi?`,
+              [
+                { label: '🎲 Tenta i Doppi', value: 'roll', pri: true },
+                { label: '💵 Paga 50 $', value: 'pay', disabled: player.data.cash < 50 }
+              ],
+              () => 'roll'
+            );
+            if (jPick === 'pay' && player.data.cash >= 50) {
+              player.data.cash -= 50;
+              player.data.jail = 0;
+              logMsg(`${player.name} paga 50 $ di cauzione ed esce di Prigione.`);
+            }
+          }
+        }
+
+        const d1 = 1 + Math.floor(Math.random() * 6);
+        const d2 = 1 + Math.floor(Math.random() * 6);
         const sum = d1 + d2;
-        const dbl = d1 === d2;
-        rolls++;
-        logMsg(`${esc(p.name)} lancia ${d1} e ${d2} (totale ${sum}).`);
+        const isDouble = d1 === d2;
 
-        if (dbl && ++p.data.doubles >= 3) {
-          p.data.pos = 10;
-          p.data.jail = 3;
-          p.data.doubles = 0;
-          sfx.bad();
-          logMsg(`${esc(p.name)} fa 3 doppi consecutivi e va in prigione!`);
-          await host.say(`Tre doppi di fila?! E allora sei recidivo, dritto al gabbio, ${p.name}!`, { mood: 'wrong' });
-          paint(10);
+        await roll3DDice(d1, d2);
+        logMsg(`🎲 ${player.name} lancia ${d1} + ${d2} = ${sum}${isDouble ? ' (DOPPIO!)' : ''}.`);
+
+        if (player.data.jail > 0) {
+          if (isDouble) {
+            player.data.jail = 0;
+            logMsg(`${player.name} fa doppio (${d1}-${d2}) ed esce di Prigione!`);
+          } else if (player.data.jail >= 3) {
+            player.data.jail = 0;
+            await chargePlayer(player, 50, null, 'Cauzione obbligatoria Prigione');
+            if (player.data.bankrupt) break;
+          } else {
+            player.data.jail++;
+            logMsg(`${player.name} non fa doppio e resta in Prigione.`);
+            break;
+          }
+        } else if (isDouble) {
+          player.data.doubles++;
+          if (player.data.doubles >= 3) {
+            logMsg(`${player.name} fa 3 doppi di fila: eccesso di velocità!`);
+            await sendToJail(player);
+            break;
+          }
+          rollAgain = true;
+        }
+
+        await animatePawnSteps3D(player, sum);
+        await resolveSpace3D(player, sum);
+
+        if (player.data.bankrupt || player.data.jail > 0) {
+          rollAgain = false;
           break;
         }
 
-        const targetPos = (p.data.pos + sum) % 40;
-        await animatedMoveTo(p, targetPos, true);
-        await land(p, sum);
-
-        extra = dbl && !p.data.jail && rolls < 3 && !p.data.bankrupt;
-        if (!dbl) p.data.doubles = 0;
-        if (extra) {
-          logMsg(`${esc(p.name)} ha fatto doppio: diritto a un altro tiro!`);
-          if (p.bot) await ctx.botThink(300, 600);
-          else await ask('DOPPIO!', 'Hai fatto doppio: tira di nuovo i dadi.', [['Lancia ancora', true, 'btn pri']]);
+        if (player.bot) {
+          runBotManagement(player);
+        } else if (!rollAgain) {
+          await humanActionDock(player, 'Gestisci proprietà a sinistra o passa la mano', 'Fine Turno ▸');
         }
       }
 
-      if (p.data.bankrupt) return;
-
-      // Bot building AI
-      if (p.bot) {
-        const ids = ownedBy(boardState, p.data.seat).filter(i => canBuild(boardState, i, p.data.seat));
-        for (const i of ids) {
-          if (p.data.cash > BOARD[i].house * 2 && Math.random() < 0.25) {
-            build(boardState, i, p.data.seat);
-          }
-        }
-      }
-      paint();
-    }
-
-    async function finishGame(reason) {
-      if (finished) return;
-      finished = true;
-      const ranking = P.map(p => ({ player: p, score: p.data.bankrupt ? 0 : netWorth(boardState, p.data.seat) }));
-      const champ = [...ranking].sort((a, b) => b.score - a.score)[0];
-      await host.say(`Signore e signori, abbiamo il re del Monopoly: ${champ?.player.name}! Vittoria schiacciante!`, { mood: 'win' });
-      ctx.finish({ title: `${champ?.player.name || 'Partita'} vince!`, lines: [reason], ranking });
-    }
-
-    await host.say(`Benvenuti al tavolo di Monopoly! I dadi sono pronti, che la scalata immobiliare abbia inizio!`, { mood: 'happy' });
-
-    paint();
-    logMsg('La sfida ha inizio.');
-
-    for (let turns = 0; active().length > 1 && !finished; turns++) {
-      const p = current();
-      await turn(p);
-      if (ctx.dead || finished) return;
-      if (active().length <= 1) {
-        await finishGame('Resta un solo giocatore solvibile!');
-        return;
-      }
+      syncScores();
+      renderLeftPanel();
       boardState.current = (boardState.current + 1) % P.length;
-      while (P[boardState.current].data.bankrupt) {
-        boardState.current = (boardState.current + 1) % P.length;
-      }
     }
-
-    ctx.onExit(() => {
-      wrap.remove();
-    });
   }
 };

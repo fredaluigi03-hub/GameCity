@@ -23,12 +23,16 @@ export function tune(col, s = .55, l = [.38, .58]) {
 }
 
 // ---------- renderer / quality ----------
-const canvas = document.getElementById('gl');
-const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'});
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = .92;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const hasBrowser = typeof document !== 'undefined' && typeof window !== 'undefined';
+const canvas = hasBrowser ? document.getElementById('gl') : null;
+const renderer = hasBrowser ? new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'}) : null;
+if (renderer) {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = .92;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+}
 let low = (() => {
+  if (!hasBrowser) return true;
   const q = new URLSearchParams(location.search).get('q');
   if (q) return q === 'low';
   try {
@@ -37,12 +41,16 @@ let low = (() => {
     return /swiftshader|llvmpipe|software|basic render|microsoft basic/i.test(name);
   } catch { return false; }
 })();
-renderer.shadowMap.enabled = !low;
-renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 1.5));
-const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, {type: THREE.HalfFloatType, samples: 0}));
-const pass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .15, .32, .98); // subtle studio bloom, no excessive yellow glow
-composer.addPass(pass); composer.addPass(bloom); composer.addPass(new OutputPass());
+if (renderer) {
+  renderer.shadowMap.enabled = !low;
+  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 1.5));
+}
+const composer = hasBrowser ? new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, {type: THREE.HalfFloatType, samples: 0})) : null;
+const pass = hasBrowser ? new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera()) : null;
+const bloom = hasBrowser ? new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .15, .32, .98) : null; // subtle studio bloom, no excessive yellow glow
+if (composer) {
+  composer.addPass(pass); composer.addPass(bloom); composer.addPass(new OutputPass());
+}
 export const quality = {get low() { return low; }};
 
 let envTex = null;
@@ -115,8 +123,10 @@ function resize() {
   renderer.setSize(w, h, false); composer.setSize(w, h);
   if (S) { S.camera.aspect = w / h; S.camera.fov = w / h < .8 ? 88 : w / h < 1.2 ? 66 : 50; S.camera.updateProjectionMatrix(); }
 }
-addEventListener('resize', resize);
-addEventListener('pointermove', e => { mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1; });
+if (hasBrowser) {
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => { mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1; });
+}
 
 const rc = new THREE.Raycaster(), v2 = new THREE.Vector2();
 export function raycast(objs, ev) {
@@ -344,7 +354,7 @@ function shadowSweep() {
 }
 
 let fpsN = 0, fpsT = 0, slow = 0;
-document.addEventListener('visibilitychange', () => { fpsN = 0; fpsT = 0; clock.getDelta(); });
+if (hasBrowser) document.addEventListener('visibilitychange', () => { fpsN = 0; fpsT = 0; clock.getDelta(); });
 const camTmp = new V3(), acc = new V3();
 function loop() {
   requestAnimationFrame(loop);
@@ -386,8 +396,10 @@ function loop() {
   }
 }
 let glChecks = 30;
-window.__eng = {goLow, renderer, composer, bloom, get S() { return S; }}; // debug hook
-loop();
+if (hasBrowser) {
+  window.__eng = {goLow, renderer, composer, bloom, get S() { return S; }}; // debug hook
+  loop();
+}
 
 // ---------- helpers ----------
 function rr(x, X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); }

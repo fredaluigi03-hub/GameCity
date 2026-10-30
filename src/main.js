@@ -80,9 +80,14 @@ function lobby() {
     const c = h('div', 'card info');
     const pl = g.players ? ` · ${g.players.min ?? 1}–${g.players.max ?? 4} giocatori` : '';
     c.innerHTML = `<div><p class="kicker" style="color:${a}">${String(sel + 1).padStart(2, '0')} · ${esc(g.tag)}</p><h3 class="disp">${esc(g.name)}</h3><p>${esc(g.desc)}${pl}${b ? ` · Record <b class="gold">${b.toLocaleString('it-IT')}</b>` : ''}</p></div>`;
+    const btnWrap = h('div', 'row', '');
+    btnWrap.style.cssText = 'margin:0;gap:8px;flex-wrap:wrap;';
+    const rulesB = h('button', 'btn rulesBtn', '📖 Regole');
+    rulesB.onclick = () => showRulesModal(g);
     const play = h('button', 'btn pri', 'Entra in studio');
     play.onclick = () => intro(g);
-    c.append(play); info.append(c);
+    btnWrap.append(rulesB, play);
+    c.append(btnWrap); info.append(c);
     cards.forEach((cd, i) => tween(cd.scale, [i === sel ? 1.12 : .9, i === sel ? 1.12 : .9, 1], .5, ease.overshoot));
     S.flashWith(a);
   }
@@ -115,12 +120,36 @@ function overlay(inner) {
   return {ov, c};
 }
 
+function showRulesModal(g) {
+  const {a} = accent(g);
+  const extraHtml = g.guide ? `<div class="rulesExtra">${g.guide}</div>` : '';
+  const {ov, c} = overlay(`
+    <p class="kicker" style="color:${a}">Regolamento Ufficiale · ${esc(g.tag)}</p>
+    <h1 class="disp">${esc(g.name)}</h1>
+    <p class="sub" style="margin-bottom:12px">${esc(g.desc)}</p>
+    <div class="rulesListWrap">
+      <ul class="rulesList">${(g.rules || []).map((r, idx) => `<li><span class="ruleNum">${idx + 1}</span><div>${r}</div></li>`).join('')}</ul>
+      ${extraHtml}
+    </div>
+  `);
+  c.classList.add('rulesModalCard');
+  const row = h('div', 'row');
+  const close = h('button', 'btn pri', 'Ho capito · Torna al gioco');
+  close.onclick = () => { sfx.click(); ov.remove(); };
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  row.append(close);
+  c.append(row);
+  close.focus();
+}
+
 function intro(g) {
   if (ui.querySelector('.ov')) return;
   const {a} = accent(g);
-  const {ov, c} = overlay(`<p class="kicker" style="color:${a}">${esc(g.tag)}</p><h1 class="disp">${esc(g.name)}</h1><ul>${g.rules.map(r => `<li>${r}</li>`).join('')}</ul>`);
+  const extraHtml = g.guide ? `<div class="rulesExtra">${g.guide}</div>` : '';
+  const {ov, c} = overlay(`<p class="kicker" style="color:${a}">${esc(g.tag)}</p><h1 class="disp">${esc(g.name)}</h1><div class="rulesListWrap"><ul class="rulesList">${g.rules.map((r, i) => `<li><span class="ruleNum">${i + 1}</span><div>${r}</div></li>`).join('')}</ul>${extraHtml}</div>`);
+  c.classList.add('rulesModalCard');
   const row = h('div', 'row');
-  const back = h('button', 'btn', 'Indietro'), go = h('button', 'btn pri', 'Si gira!');
+  const back = h('button', 'btn', 'Indietro'), go = h('button', 'btn pri', 'Configura Partita ▸');
   back.onclick = () => ov.remove();
   go.onclick = () => { sfx.drum(); if (g.players) { ov.remove(); setup(g); } else launch(g); };
   row.append(back, go); c.append(row); go.focus();
@@ -167,10 +196,25 @@ function setup(g) {
   paintSp();
   spRow.append(spSeg);
 
+  const MONO_TOKENS = [
+    {id: 'tophat', icon: '🎩', label: 'Cilindro'},
+    {id: 'car', icon: '🏎️', label: 'Auto da Corsa'},
+    {id: 'dog', icon: '🐕', label: 'Cane Scotty'},
+    {id: 'ship', icon: '🚢', label: 'Corazzata'},
+    {id: 'thimble', icon: '🪡', label: 'Ditale'},
+    {id: 'boot', icon: '👢', label: 'Stivale'},
+    {id: 'wheelbarrow', icon: '🛒', label: 'Carriola'},
+    {id: 'iron', icon: '熨', label: 'Ferro da Stiro'}
+  ];
+  const hasTokens = g.id === 'monopoly' || Array.isArray(g.tokens);
+  const tokenPool = g.tokens || MONO_TOKENS;
+  const seatTokens = new Map();
+
   const seats = h('div', 'seats');
   const rosterNote = h('p', 'sub rosterNote'); rosterNote.hidden = true;
-  const row = h('div', 'row'), back = h('button', 'btn', 'Indietro'), go = h('button', 'btn pri', 'Inizia lo show');
-  row.append(back, go); c.append(seg, sw, rosterNote, cdRow, qdRow, spRow, seats, row);
+  const row = h('div', 'row'), back = h('button', 'btn', 'Indietro'), rulesB = h('button', 'btn rulesBtn', '📖 Regole'), go = h('button', 'btn pri', 'Inizia lo show');
+  rulesB.onclick = () => showRulesModal(g);
+  row.append(back, rulesB, go); c.append(seg, sw, rosterNote, cdRow, qdRow, spRow, seats, row);
   const swIn = sw.querySelector('input');
   const swLbl = sw.querySelector('.lbl');
 
@@ -212,16 +256,36 @@ function setup(g) {
         render();
       };
 
+      let tokenEl = null;
+      if (hasTokens) {
+        const curTokIdx = seatTokens.has(i) ? seatTokens.get(i) : (i % tokenPool.length);
+        seatTokens.set(i, curTokIdx);
+        const tok = tokenPool[curTokIdx];
+        tokenEl = h('button', 'pill btn tokenPickBtn', `${tok.icon} ${tok.label}`);
+        tokenEl.type = 'button';
+        tokenEl.title = 'Clicca per cambiare pedina 3D';
+        tokenEl.style.cssText = 'padding:2px 8px;font-size:0.75rem;';
+        tokenEl.onclick = () => {
+          seatTokens.set(i, (curTokIdx + 1) % tokenPool.length);
+          sfx.click();
+          render();
+        };
+      }
+
       if (isBot) {
         const nm = h('span', 'nm', BOTS[i % BOTS.length]);
         const tag = h('span', 'tag', 'CPU');
-        s.append(dot, nm, tag, toggle);
+        s.append(dot, nm);
+        if (tokenEl) s.append(tokenEl);
+        s.append(tag, toggle);
       } else {
         const inp = h('input');
         inp.setAttribute('aria-label', `Nome giocatore ${i + 1}`);
         inp.maxLength = 14;
         inp.value = keep[i] ?? saved[i] ?? `Giocatore ${i + 1}`;
-        s.append(dot, inp, toggle);
+        s.append(dot, inp);
+        if (tokenEl) s.append(tokenEl);
+        s.append(toggle);
       }
       return s;
     }));
@@ -239,7 +303,8 @@ function setup(g) {
       const isBot = manualBots.has(i) ? manualBots.get(i) : (i >= count);
       const inp = seats.querySelectorAll('.seat')[i]?.querySelector('input');
       const name = isBot ? BOTS[i % BOTS.length] : (inp?.value.trim() || `Giocatore ${i + 1}`);
-      return {name, color: PAL.players[i % PAL.players.length], bot: isBot};
+      const tokIdx = seatTokens.has(i) ? seatTokens.get(i) : (i % tokenPool.length);
+      return {name, color: PAL.players[i % PAL.players.length], bot: isBot, token: hasTokens ? tokenPool[tokIdx] : null};
     });
     const humanNames = finalSeats.filter(s => !s.bot).map(s => s.name);
     if (humanNames.length) store.set('names', humanNames);
@@ -257,6 +322,10 @@ function launch(g, cfg) {
   const exitBtn = h('button', 'pill btn', '← Studio'); exitBtn.onclick = () => { kill(); lobby(); };
   const name = h('div', 'pill disp title', g.name);
   const right = h('div', 'hudR'), tools = h('div', 'tools');
+
+  const rulesBtn = h('button', 'pill btn rulesBtn', '📖 Regole');
+  rulesBtn.title = 'Leggi il regolamento completo di questo gioco';
+  rulesBtn.onclick = () => { sfx.click(); showRulesModal(g); };
 
   const retireBtn = h('button', 'pill btn retireBtn', '⚐ Ritirati');
   retireBtn.title = 'Abbandona la gara o elimina un concorrente';
@@ -284,18 +353,19 @@ function launch(g, cfg) {
     c.append(cancel);
   };
 
-  tools.append(retireBtn, speedBtn(), muteBtn());
+  tools.append(rulesBtn, retireBtn, speedBtn(), muteBtn());
   hudEl.append(exitBtn, name, h('div', 'sp'), right, tools);
   const board = h('div', 'board'), top = h('div', 'topStack'); board.setAttribute('aria-live', 'polite');
   top.append(hudEl, board); bottom.append(subSlot, dockEl);
   ui.append(top, bottom);
   const seats = cfg?.seats || [{name: store.get('names', [])[0] || 'Tu', color: '#38bdf8', bot: false}];
   const diff = cfg?.cpuDiff ?? 'medio';
-  const players = seats.map((s, id) => ({id, name: s.name, color: s.color, bot: s.bot, skill: s.bot ? SKILL[diff] + (Math.random() - .5) * .12 : undefined, score: 0, alive: true, data: {}}));
+  const players = seats.map((s, id) => ({id, name: s.name, color: s.color, bot: s.bot, token: s.token || null, skill: s.bot ? SKILL[diff] + (Math.random() - .5) * .12 : undefined, score: 0, alive: true, data: {}}));
   const kill = () => { if (ctx.dead) return; ctx.dead = true; ctx.exits.forEach(f => { try { f(); } catch {} }); };
   const ctx = {
     dead: false, exits: [], ui, g, accent: {a, b},
     cpu: !!cfg?.cpu, cpuDiff: diff, qDiff: cfg?.qDiff ?? 2,
+    showRules: () => showRulesModal(g),
     // question pool at level d (1–3); items without d count as 2; fallback to full list if too few
     pool: (list, d = ctx.qDiff) => { const f = list.filter(x => (x.d ?? 2) === d); return f.length >= 5 ? f : list; },
     players, humans: players.filter(p => !p.bot), active: null, hudTools: tools, subSlot, cfg,

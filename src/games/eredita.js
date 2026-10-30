@@ -225,6 +225,35 @@ function createStudioLedWall(G, THREE) {
 export default {
   id: 'eredita', name: 'L’Eredità', tag: 'Quiz a eliminazione + La Ghigliottina', desc: 'Format completo da 2 a 7 concorrenti con duelli, montepremi e Ghigliottina', c1: '#2f6bff', c2: '#ffd24a',
   players: {min: 1, max: 7, def: 7}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">👥 Format a Eliminazione &amp; I Primi Giochi</h4>
+    <p>Da 2 a 7 concorrenti si affrontano in una gara a eliminazione progressiva dove a ogni manche chi commette errori rischia l'uscita:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>C'è o non c'è:</b> un tema centrale e termini proposti in sequenza. Decidi se la parola appartiene o meno all'argomento (+10.000 €; due errori e sei a rischio).</li>
+      <li><b>1, 2, 3... quella!:</b> tre indizi per trovare l'unica risposta corretta (+10.000 €).</li>
+      <li><b>Le Date:</b> quattro anni storici da abbinare ai rispettivi eventi (+10.000 €).</li>
+      <li><b>La Scossa:</b> 9 opzioni sul tabellone. Attenzione: devi <b>EVITARE</b> la risposta esatta! Chi si salva guadagna 20.000 €; chi prende la scossa va al duello eliminatorio.</li>
+      <li><b>La Sfida / Scalata Doppia:</b> duello a tempo (45 o 60 secondi) tra due concorrenti. Chi vince <b>eredita l'intero montepremi</b> dell'avversario eliminato!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🔺 Il Triello &amp; I 100 Secondi</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Il Triello (3 concorrenti):</b> tabellone a 8 caselle tematiche con domande da 10.000 € a 30.000 €. Chi indovina sceglie la casella successiva. La casella <i>Imprevisto</i> permette di puntare fino a 60.000 €! I due con il montepremi più alto volano ai 100 secondi.</li>
+      <li><b>I 100 Secondi (2 finalisti):</b> duello testa a testa con domande a raffica: se rispondi giusto mantieni la mano; se sbagli la mano passa all'avversario. Chi ha la mano quando scatta lo zero sul cronometro dei 100 secondi diventa campione e va alla Ghigliottina!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🗡️ La Ghigliottina (Il Gioco Finale)</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>5 coppie di parole:</b> scegli la parola giusta tra le due proposte per ogni coppia. Ogni errore fa scendere la lama e <b>dimezza</b> il montepremi accumulato!</li>
+      <li><b>Il Minuto della Verità:</b> con i 5 indizi svelati hai 60 secondi per scrivere sul cartellino virtuale la parola che li accomuna tutti. Indovinando incassi l'intero montepremi in palio!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Clicca sulle opzioni o usa i tasti numerici/lettere per rispondere durante le manche.</li>
+      <li>Alla Ghigliottina: digita la parola nella casella di testo e premi Invio o 'Ghigliottina' prima dello scadere dei 60 secondi.</li>
+    </ul>
+  `,
   rules: [
     'Concorrenti in gara a eliminazione progressiva: a ogni manche chi sbaglia affronta la Sfida o la Scalata doppia.',
     'I concorrenti accumulano montepremi con le risposte corrette. Chi vince un duello eredita tutto il montepremi dell’avversario eliminato.',

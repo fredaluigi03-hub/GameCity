@@ -38,6 +38,39 @@ const effTxt = e => e.k === 'money' ? ['+ ' + eur(e.v)] : {life: ['+1 VITA'], sc
 export default {
   id: 'caduta', name: 'Caduta Libera', tag: 'Un campione, dieci botole', desc: 'Il campione sfida dieci concorrenti sulle botole: chi resta senza tempo e senza vite cade', c1: '#1ec8ff', c2: '#ffffff',
   players: {min: 1, max: 4, def: 11}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">🎯 Il Campione &amp; Le Dieci Botole</h4>
+    <p>Il <b>Campione</b> si trova sulla pedana centrale con <b>3 vite</b> a disposizione; intorno a lui ci sono fino a 10 sfidanti disposti ciascuno su una botola circolare. Il campione sceglie ogni volta uno sfidante da affrontare, alternando un uomo e una donna.</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⚔️ Il Duello Enigmistico</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>30 secondi a turno:</b> appare una definizione con caselle e alcune lettere guida già scoperte. Scrivi la parola corretta (tentativi illimitati finché scorre il tempo).</li>
+      <li><b>Vite &amp; Caduta:</b> allo scadere dei 30 secondi perdi 1 vita. Chi resta a 0 vite vede la botola aprirsi sotto i piedi e precipita nel vuoto!</li>
+      <li><b>Passo del Campione:</b> il campione può passare la mano; se lo sfidante indovina, ruba una vita al campione!</li>
+      <li><b>Urlo del Pubblico:</b> aiuta il campione suggerendo la parola misteriosa quando si trova in difficoltà.</li>
+      <li><b>Cambio Campione:</b> se cade il campione, lo sfidante prende il suo posto al centro ed eredita la gara.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🍭 Il Lecca-Lecca &amp; L'Ultima Sfida</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Piede Bianco o Piede Nero:</b> eliminato uno sfidante, il campione sceglie uno dei due piedi della botola: premi in denaro (fino a 100.000 €), +1 Vita, +1 Urlo, oppure gli insidiosi <i>Raddoppio</i>, <i>Dimezza</i> o <i>Azzera</i>!</li>
+      <li><b>Ultima Sfida:</b> rimasto l'ultimo sfidante, si gioca un duello rapido a pari vite con soli 15 secondi a domanda.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🏆 Il Gioco Finale</h4>
+    <p>Il vincitore accede alla finale scegliendo tra:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Le 10 Botole:</b> un'unica categoria a tema, 10 risposte da indovinare in 90 secondi.</li>
+      <li><b>I 10 Passi:</b> 10 definizioni in 3 minuti con facoltà di passare e riprendere le domande rimaste.</li>
+    </ul>
+    <p>Superando la finale si vince il montepremi accumulato (minimo garantito 10.000 €); fallendo si cade nella botola centrale!</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Digita direttamente dalla tastiera oppure tocca le lettere a schermo per completare la parola.</li>
+      <li>Pulsanti dedicati per invocare l'Urlo o cedere il turno con il Passo.</li>
+    </ul>
+  `,
   rules: [
     'Il Giocatore 1 è il campione al centro, con 3 vite; gli altri (fino a 10) sono sfidanti, ognuno sulla propria botola. Con la CPU si arriva a 11 concorrenti; senza CPU si gioca solo tra umani (minimo 2).',
     'Con meno di 5 concorrenti si giocano più manche: a turno ognuno è il campione e sfida gli altri. Vince chi accumula più soldi nelle finali.',
@@ -145,9 +178,13 @@ export default {
     let pot = 0, urli = 1;
     const potLbl = label3d(['MONTEPREMI', eur(0)], {w: 3.4, h: 1, px: 180, fs: .4}); potLbl.position.set(0, 4.7, -2.4); S.add(potLbl);
 
-    // ---------- players: only those from cfg (no injected bots), bodies ----------
-    const P = ctx.players, N = P.length, M = N < 5 ? N : 1; // < 5 concorrenti (solo umani): una manche a testa
-    const slot = i => ring[Math.round((i + .5) * 10 / (N - 1) - .5)]; // sfidanti spalmati sull'anello
+    // ---------- players: only those from cfg, bodies ----------
+    const P = ctx.players;
+    while (P.length < 2) {
+      P.push({id: P.length, name: `CPU ${P.length + 1}`, color: PAL.players[P.length % PAL.players.length], bot: true, skill: .55, score: 0, alive: true, data: {}});
+    }
+    const N = P.length, M = N < 5 ? N : 1; // < 5 concorrenti (solo umani): una manche a testa
+    const slot = i => ring[Math.min(ring.length - 1, Math.max(0, Math.round((i + .5) * 10 / Math.max(1, N - 1) - .5)))]; // sfidanti spalmati sull'anello
     let champ = P[0], mi = 0, lastG = null;
     P.forEach((p, i) => {
       p.data.g = genderOf(p.name); p.data.won = 0;
@@ -509,11 +546,13 @@ export default {
         else await crown(chal);
       }
       const last = alive()[0];
-      watch = !champ.bot || !last.bot; wide();
-      await talk(`Resta solo ${last.name}! Ultima sfida: stesse vite, quindici secondi a risposta!`, {mood: 'surprised', gesture: 'point', to: last});
-      const w = await duel(champ, last, true);
-      if (w !== champ) await crown(w);
-      hud();
+      if (last) {
+        watch = !champ.bot || !last.bot; wide();
+        await talk(`Resta solo ${last.name}! Ultima sfida: stesse vite, quindici secondi a risposta!`, {mood: 'surprised', gesture: 'point', to: last});
+        const w = await duel(champ, last, true);
+        if (w !== champ) await crown(w);
+        hud();
+      }
 
       // final
       const c = champ; watch = !c.bot; wide();

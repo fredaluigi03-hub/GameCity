@@ -63,6 +63,35 @@ const GEST = {intro: 'wave', next: 'point', out: 'point', avanti: 'point', champ
 export default {
   id: 'avanti', name: 'Avanti un altro!', tag: 'La sedia del campione', desc: 'Fai la fila, pesca il rotolo giusto, conquista la sedia', c1: '#ff7a1a', c2: '#ffe14a',
   players: {min: 1, max: 6, def: 5}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">👥 La Fila &amp; I Round di Domande</h4>
+    <p>I concorrenti fanno la fila e salgono sullo sgabello centrale uno alla volta. Ciascun turno ("stint") affronta una serie di <b>4 domande</b> su una categoria a tema con due opzioni ciascuna: servono <b>3 risposte giuste</b> per superare il round. Con <b>2 errori</b> scatta l'eliminazione ("Avanti un altro!").</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">📜 Il Pidigozzaro &amp; La Sedia</h4>
+    <p>Superate le domande, il concorrente pesca un rotolo cilindrico dal Pidigozzaro rotante:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Rotoli in Denaro:</b> da 1.000 € a 200.000 € che si sommano al montepremi personale.</li>
+      <li><b>La Pariglia:</b> duello al pulsante col campione in carica per pareggiare il punteggio.</li>
+      <li><b>Lo Iettatore:</b> azzera il bottino e costringe a una domanda funebre a rischio eliminazione.</li>
+      <li><b>Avanti un altro!:</b> eliminazione diretta senza appello.</li>
+      <li><b>La Bona Sorte:</b> domanda della Fata che vale 300.000 € e la conquista immediata della Sedia!</li>
+      <li><b>Personaggi del Salottino:</b> domande bizzarre che regalano un <b>Jolly</b> (per rifiutare un rotolo) o il <b>Bonus</b> (raddoppia il valore del rotolo).</li>
+    </ul>
+    <p>Chi supera il montepremi del campione si siede sulla <b>Sedia del Campione</b>, spodestando il predecessore. All'ultimo della fila suona la <b>Sirena</b>: un solo round a disposizione per scavalcarlo.</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⏱️ Il Gioco Finale dei 21 &amp; Il Raggio</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>I 21 al contrario:</b> 21 domande in 150 secondi dando <b>SEMPRE la risposta SBAGLIATA</b>! Se premi quella corretta, suona l'errore e riparti dalla domanda 1. Completando la lista vinci il tuo montepremi + 100.000 € extra!</li>
+      <li><b>Fase Jackpot &amp; Mano nel Raggio:</b> scaduti i 150 secondi perdi il bottino base e giochi per un jackpot di 100.000 € che scende di 1.000 € al secondo. Tenendo premuto <b>Mano nel Raggio</b> (o barra Spazio) congeli il montepremi (scatta automatico a 50.000 €). Segue l'ultimo giro con 10 secondi a risposta: un errore e perdi tutto.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi e Suggerimenti</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Usa i tasti <b>A</b> e <b>B</b> della tastiera o clicca a schermo per selezionare le risposte con 2 opzioni.</li>
+      <li>Nel finale inverso, concentrati sulla risposta sbagliata ed evita il riflesso condizionato di dare quella vera!</li>
+      <li>Tieni premuto <b>Spazio</b> o il pulsante 'Mano nel raggio' per congelare il jackpot prima che cali a 50.000 €.</li>
+    </ul>
+  `,
   rules: [
     'I concorrenti fanno la fila e salgono uno alla volta; con meno di 5 giocatori la fila si ripete in più puntate (in tutto circa 5 turni), e chi è uscito rientra in fila. Ogni round: 4 domande della stessa categoria, 2 risposte ciascuna. Servono 3 giuste; con 2 errori sei fuori.',
     'Superato il round peschi un rotolo dal pidigozzaro: soldi (da 1.000 a 200.000 €) che si sommano, oppure La pariglia (duello al pulsante col campione), Lo iettatore (punteggio azzerato e domanda funebre), Avanti un altro! (fuori subito), La bona sorte (domanda della fata: 300.000 € e la sedia).',

@@ -13,6 +13,37 @@ const mix = (A, B, w) => w <= 0 ? A : {sx: A.sx + (B.sx - A.sx) * w, sz: A.sz + 
 export default {
   id: 'fight', name: 'Fight List', tag: 'Il ring delle liste', desc: 'Elenca a raffica in 45 secondi e manda KO lo sfidante', c1: '#ff3b30', c2: '#3b9bff',
   players: {min: 1, max: 4, def: 2, rival: true}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">🥊 Il Ring delle Liste</h4>
+    <p>Due sfidanti salgono sul ring e si affrontano a colpi di parole! Ad ogni manche viene estratto un <b>tema comune</b> (es. <i>"Frutti"</i>, <i>"Città europee"</i>, <i>"Cose che si trovano in spiaggia"</i>, <i>"Personaggi storici"</i>): entrambi i contendenti giocano sullo stesso argomento passandosi il dispositivo o sfidando la CPU.</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⏱️ 45 Secondi a Raffica &amp; Punteggi</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>45 secondi sul cronometro:</b> scrivi a tutta velocità più risposte valide possibili.</li>
+      <li><b>Parole Comuni:</b> valgono <b>1 punto</b>.</li>
+      <li><b>Parole Rare / Difficili:</b> colpi pesanti da <b>3 punti</b>!</li>
+      <li>Non contano doppioni o risposte fuori lista. Il motore lessicale è flessibile: accetta accenti, piccoli errori di battitura e cognomi dei personaggi noti.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⚡ Gli Aiuti Speciali</h4>
+    <p>Ciascun giocatore ha a disposizione due aiuti strategici (utilizzabili una sola volta per incontro):</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Crono (+20s):</b> prolunga il tempo di digitazione di 20 secondi extra per sferrare altri colpi.</li>
+      <li><b>Jolly:</b> suggerisce all'istante una parola valida ancora non detta, pronta da incassare premendo Invio.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🏆 Vittoria per KO &amp; Formati di Gara</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Vince la manche chi totalizza più punti (pari = manche nulla). Il primo che conquista <b>2 manche</b> manda KO l'avversario e vince il match!</li>
+      <li><b>1 Giocatore:</b> duello contro la CPU; <b>2 Giocatori:</b> testa a testa sullo stesso schermo; <b>3 Giocatori:</b> girone all'italiana (tutti contro tutti); <b>4 Giocatori:</b> torneo a eliminazione (Semifinali e Finale).</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Digita la parola e premi <b>Invio</b> per convalidarla istantaneamente.</li>
+      <li>Tasti/pulsanti <b>Crono</b> e <b>Jolly</b> posizionati a portata di mano accanto alla barra di digitazione.</li>
+    </ul>
+  `,
   rules: [
     'Duello 1 contro 1 a manche: a ogni manche esce un tema a caso (es. “Frutti”), uguale per entrambi.',
     'Hai 45 secondi per scrivere più risposte valide possibili: le comuni valgono 1 punto, le rare 3.',
@@ -201,6 +232,7 @@ export default {
 
     // ---------- seats ----------
     const P = ctx.players;
+    while (P.length < 2) P.push({id: P.length, name: `Rival CPU`, color: A2, bot: true, skill: .6, score: 0, alive: true, data: {}});
     P.forEach(p => { p.data.mw = 0; p.data.wins = 0; });
     ctx.scoreboard();
     const themes = shuffle(ctx.pool(buildThemes(norm))); let ti = 0;
@@ -398,6 +430,7 @@ export default {
       const c = h('div', 'card');
       c.innerHTML = `<div class="meta"><span>${titolo}</span><span>${P.length} lottatori</span></div><h2>Tabellone</h2><p class="msg">${righe.join('<br>')}</p><div class="row"><button class="btn pri">Al ring!</button></div>`;
       ctx.dock(c); const b = c.querySelector('button'); b.focus(); b.onclick = () => { sfx.click(); res(); };
+      if (!P.some(p => !p.bot)) setTimeout(() => { if (!ctx.dead) { sfx.click(); res(); } }, 2000);
     }));
     const vs = (x, y, t) => `${t}: <b>${esc(x.name)}</b> contro <b>${esc(y.name)}</b>`;
     if (P.length === 2) await duel(P[0], P[1], 'Incontro');

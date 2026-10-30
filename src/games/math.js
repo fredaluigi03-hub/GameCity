@@ -47,6 +47,37 @@ const CSS = `
 export default {
   id: 'math', name: 'Calcolo Lampo', tag: 'The Floor della matematica', desc: 'Conquista il pavimento a colpi di calcoli', c1: '#2fa58a', c2: '#d8b45a',
   players: {min: 1, max: 4, def: 8, rival: true}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">📐 Il Floor &amp; I Territori Matematici</h4>
+    <p>Il pavimento dello studio è un'imponente griglia di caselle LED luminose: ogni concorrente possiede una porzione di territorio e una materia matematica di competenza (<i>Addizioni</i>, <i>Sottrazioni</i>, <i>Moltiplicazioni</i>, <i>Frazioni</i>, <i>Equazioni</i>, <i>Geometria</i>, <i>Percentuali</i>, <i>Conversioni</i>).</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⚔️ Il Sorteggio &amp; La Sfida al Vicino</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Un selettore casuale estrae il primo attaccante sul Floor, che deve scegliere quale vicino confinante sfidare a duello.</li>
+      <li><b>Regola del Terreno:</b> il duello si disputa <b>SEMPRE sulla categoria del DIFENSORE</b>! Lo sfidante risponde per primo.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⏱️ Il Duello a Orologio (45 Secondi Stile Scacchi)</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Ciascun contendente ha un cronometro personale di <b>45 secondi</b> che scorre solo durante il proprio turno.</li>
+      <li><b>Risposta Esatta:</b> il tempo si ferma all'istante e la mano passa all'avversario.</li>
+      <li><b>Risposta Errata:</b> il cronometro continua a scendere e devi correggerti rapidamente!</li>
+      <li><b>Tasto PASSO (P):</b> rivela la soluzione corretta ma infligge una penalità di <b>3 secondi</b> sul cronometro.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">👑 Conquista o Riposo &amp; Vittoria Finale</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Chi esaurisce il tempo perde il duello ed è eliminato (o cede caselle vicine con pochi giocatori); il vincitore eredita le sue caselle e le sue materie.</li>
+      <li><b>Strategia post-duello:</b> il vincitore può decidere se continuare subito ad attaccare un altro confinante (mantenendo i secondi residui sul cronometro) o tornare sul Floor (ripartendo da 45 secondi pieni al prossimo duello).</li>
+      <li>Chi conquista l'ultimo lembo di pavimento domina l'intero Floor, incassa un <b>Super Bonus di 2.000 punti</b> ed è campione!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Usa il tastierino numerico a schermo o la tastiera del computer (cifre da <b>0 a 9</b>, <b>Backspace</b> per cancellare, <b>Invio</b> per confermare, <b>P</b> per passare).</li>
+      <li>Appena inserisci il risultato corretto, il sistema valida e passa automaticamente il turno.</li>
+    </ul>
+  `,
   rules: [
     'Il pavimento è una griglia di caselle luminose: ogni concorrente possiede un territorio e una categoria di matematica (addizioni, frazioni, equazioni, geometria, conversioni…).',
     'Il sorteggio sceglie uno sfidante, che attacca un territorio confinante. Si gioca sempre sulla categoria del difensore; lo sfidante risponde per primo.',
@@ -61,6 +92,11 @@ export default {
     // ---------- contestants (def 8 can exceed main.js colours/bot names: fix them here) ----------
     const P = ctx.players;
     const taken = new Set(P.map(p => p.name).filter(Boolean));
+    while (P.length < 2) {
+      const extraName = EXTRA.find(x => !taken.has(x)) || `CPU ${P.length + 1}`;
+      taken.add(extraName);
+      P.push({id: P.length, name: extraName, color: COLORS[P.length % COLORS.length], bot: true, skill: .55, score: 0, alive: true, data: {}});
+    }
     P.forEach((p, i) => { p.color = COLORS[i % COLORS.length]; if (!p.name || p.name === 'undefined') { p.name = EXTRA.find(x => !taken.has(x)); taken.add(p.name); } });
     ctx.scoreboard();
     const n = P.length, part = n < 4, TAKE = 3, GN = n === 4 ? 3 : 4, NC = GN * GN; // ponytail: few players = bigger floor + partial takeover so the game lasts

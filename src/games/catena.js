@@ -30,6 +30,39 @@ export default {
   id: 'catena', name: 'Reazione a Catena', tag: 'L’intesa vincente', desc: 'Due squadre, parole a catena e l’intesa decide tutto', c1: '#3f74d8', c2: '#e08a3a',
   // Con CPU spenta si gioca con sei umani; con CPU attiva le squadre si completano a tre.
   players: {min: 1, max: 6, def: 6, rival: true, cpuRequiredBelow: 6},
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">👥 Le Squadre &amp; I Giochi per il Montepremi</h4>
+    <p>Due squadre da 3 componenti: <b>Squadra Blu</b> (campioni) contro <b>Squadra Arancio</b> (sfidanti). Sette giochi a catena di parole riempiono i rispettivi montepremi:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>1. Le Parole Mancanti:</b> completa le parole mancanti in definizioni e aforismi celebri.</li>
+      <li><b>2. Catena del Titolo:</b> indovina il titolo di una celebre canzone attraverso una catena di parole collegate, una nota alla volta.</li>
+      <li><b>3. La Sillaba Fortunata:</b> trova la parola misteriosa che inizia con la sillaba data, collegata a due indizi.</li>
+      <li><b>4. Una tira l'altra + Zip:</b> catena rapida di parole; l'ultimo anello sblocca lo <i>Zip</i> da 4 parole per un ricco bonus.</li>
+      <li><b>5. Quando, Dove, Come, Perché:</b> quattro indizi progressivi per scoprire l'enigma.</li>
+      <li><b>6. Quattro per Una:</b> quattro definizioni distinte che convergono su un'unica parola soluzione.</li>
+      <li><b>7. Lo Zot:</b> la squadra in svantaggio può rubare secondi preziosi agli avversari indovinando una parola in soli 5 secondi.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⚡ L'Intesa Vincente (Il Gioco Decisivo)</h4>
+    <p>La sfida più iconica: 60 secondi sul cronometro. Due compagni in piedi formulano la domanda dicendo <b>una parola a testa</b> alternandosi, senza mai esitare o ripetere radici lessicali; il terzo compagno seduto deve indovinare.</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Punteggio:</b> <b>+1 punto</b> per risposta corretta, <b>-1 punto</b> per errore o fallo nel suggerimento.</li>
+      <li><b>Passo &amp; Raddoppio:</b> 3 bonus "Passo" e 2 "Raddoppio" sulle risposte a più parole.</li>
+      <li>Chi ottiene più punti vince la puntata e accede all'Ultima Catena con l'intero montepremi accumulato!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🔗 L'Ultima Catena &amp; L'Ultima Parola</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>15 anelli da completare:</b> 10 secondi a parola. Hai 2 <b>Jolly</b> per scoprire lettere d'aiuto, ma ogni errore <b>dimezza</b> il montepremi!</li>
+      <li><b>L'Ultima Parola:</b> hai 60 secondi per trovare la parola che lega il primo termine al <b>Terzo Elemento</b> misterioso (acquistabile dimezzando ancora una volta la somma). Rispondendo esattamente si vince l'intero montepremi in denaro!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Premi <b>PRENOTA</b> o la barra Spazio nei giochi a pulsante e digita la risposta.</li>
+      <li>Nell'Intesa: clicca sui pulsanti Passo o Raddoppio al momento opportuno.</li>
+    </ul>
+  `,
   rules: [
     'Due squadre: <b>Blu</b> (campioni) contro <b>Arancio</b> (sfidanti). Gli umani si dividono tra le squadre; con la CPU attiva le squadre si completano a tre con concorrenti CPU, senza CPU giocano solo gli umani (a turno).',
     'Sette giochi riempiono il montepremi di ogni squadra: Le parole mancanti, Catena del titolo, La sillaba fortunata, Una tira l’altra + Zip, Quando dove come perché, Quattro per una e Zot.',
@@ -48,9 +81,9 @@ export default {
     const hum = ctx.players.filter(p => !p.bot), bots = ctx.players.filter(p => p.bot);
     hum.forEach((p, k) => T[k % 2].m.push(p));
     const taken = new Set(ctx.players.map(p => p.name)), spare = CPU.filter(n => !taken.has(n));
-    for (const t of T) while (ctx.cpu && t.m.length < 3) {
+    for (const t of T) while (t.m.length < 3) {
       let p = bots.shift();
-      if (!p) { p = {id: 100 + spare.length, name: spare.shift(), bot: true, skill: .5 + Math.random() * .25, score: 0, alive: true, data: {}}; }
+      if (!p) { p = {id: 100 + spare.length, name: spare.shift() || `CPU ${t.m.length + 1}`, bot: true, skill: .5 + Math.random() * .25, score: 0, alive: true, data: {}}; }
       t.m.push(p);
     }
     ctx.players.splice(0, ctx.players.length, ...T[0].m, ...T[1].m);
@@ -618,7 +651,7 @@ export default {
         await roles(t);
         const {g, gs} = t.roles;
         if (!g.bot) await ctx.passDevice(g);
-        host.say(`Tocca ai ${t.name}! ${g.name} si siede, ${gs[0].name} e ${gs[1].name} suggeriscono.`, {to: g});
+        host.say(`Tocca ai ${t.name}! ${g.name} si siede, ${gs[0]?.name || 'il compagno'} e ${gs[1]?.name || 'il compagno'} suggeriscono.`, {to: g});
         await stageIn(t, g, gs);
         S.go([0, 2.9, 8.4], [0, 1.9, 1.7]); clk.visible = true; setClock(t.it, t.it);
         await sl(900);

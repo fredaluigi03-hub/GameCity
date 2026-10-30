@@ -17,6 +17,31 @@ const pc = (p, t, n) => Math.min(.95, (p.skill ?? .6) * 1.25 * (1 - Math.exp(-n 
 export default {
   id: 'hit', name: 'Hit', tag: 'Indovina la canzone', desc: 'L’orchestra suona, tu prenoti e indovini il titolo', c1: '#9a6cc8', c2: '#4fb3a9',
   players: {min: 1, max: 4, def: 2, rival: true}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">🎶 L'Orchestra dal Vivo &amp; Le Tre Sfide</h4>
+    <p>Due squadre (o due concorrenti) e un'orchestra polifonica 3D che suona dal vivo melodie classiche, canzoni pop e brani celebri:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>1. Playlist (da 3 a 6 brani):</b> l'orchestra esegue un medley di brani. Prenotati per primo al pulsante o con la barra Spazio e digita il titolo (+200 € a risposta). Chi ne indovina di più vince il primo prezioso <b>Jolly</b> per il finale!</li>
+      <li><b>2. Bid-a-Note (Asta delle Note):</b> dopo un indizio sul testo o sull'autore, le squadre si sfidano al ribasso offrendo con quante note riconoscono il brano (da 7 note a scendere: <i>"La indovino con 5 note... Io con 4!"</i>). Chi dice <i>"Ti sfido!"</i> costringe l'avversario a indovinare con le note dichiarate. Chi arriva per primo a 3 punti guadagna 1.000 € e un <b>Jolly</b>.</li>
+      <li><b>3. Melody Roulette:</b> a turno una squadra gira la grande ruota per determinare il valore economico del brano in palio. Chi indovina incassa la somma estratta.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">⏱️ Sette per Trenta (7x30 Finale)</h4>
+    <p>La squadra con il montepremi più alto accede al gioco finale più avvincente:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>30 secondi complessivi per 7 brani musicali:</b> il cronometro scorre <b>SOLO mentre l'orchestra suona</b>!</li>
+      <li>Premi <b>STOP</b> (o barra Spazio) per bloccare l'orologio, poi digita il titolo o passa.</li>
+      <li>I brani passati tornano in coda se resta tempo a disposizione. Attenzione: un singolo <b>errore</b> interrompe definitivamente il gioco finale!</li>
+      <li><b>Uso dei Jolly:</b> ogni Jolly accumulato indovina automaticamente un brano per te senza rischiare errori.</li>
+      <li><b>Premi:</b> <b>500 €</b> per ciascun brano indovinato + un <b>Super Bonus di 5.000 € extra</b> se completi tutti e 7 i brani!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Premi la <b>barra Spazio</b> (o i tasti <b>Q / P</b> in base alla postazione) oppure clicca sul pulsante PRENOTA / STOP a schermo.</li>
+      <li>Digita il titolo nella casella di testo e premi Invio (sono tollerati articoli omessi e lievi errori di battitura).</li>
+    </ul>
+  `,
   rules: [
     'Due squadre (o due giocatori) e un’orchestra dal vivo: suona melodie classiche, popolari e filastrocche. Da solo sfidi un rivale CPU. La difficoltà sceglie brani più facili o più ostici, il tempo per rispondere e la velocità degli indizi. Con meno giocatori si suonano più brani.',
     '<b>Playlist</b>: da 3 a 6 brani (più giocatori, meno brani), prenota per primo (pulsante, oppure Spazio / Q e P) e scrivi il titolo. Chi ne indovina di più vince il primo <b>jolly</b>.',
@@ -164,6 +189,7 @@ export default {
 
     // ---------- sides, podiums, buzzers ----------
     const players = ctx.players;
+    while (players.length < 2) players.push({id: players.length, name: `Rival CPU`, color: ctx.accent.b, bot: true, skill: .6, score: 0, alive: true, data: {}});
     const all = players, n = all.length, qd = ctx.qDiff;
     const PL = Math.ceil(12 / n), ROUL = 2 * Math.ceil(4 / n);        // fewer players -> more tunes
     const TM = [1.4, 1, .75][qd - 1], CL = [4800, 3500, 2600][qd - 1]; // answer-time factor, ms between text clues

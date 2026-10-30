@@ -37,6 +37,34 @@ const L = {
 export default {
   id: 'affari', name: 'Affari Tuoi', tag: 'Il Dottore ti chiama', desc: '20 pacchi, 20 regioni, un solo Dottore', c1: '#2f5fd0', c2: '#c8324f',
   players: {min: 1, max: 4, def: 1}, difficulty: true, // difficulty: show CPU row (banker generosity)
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">📦 Struttura del Gioco</h4>
+    <p>All'inizio scegli la tua <b>Regione di appartenenza</b>: il pacco della tua terra diventa tuo e rimane sigillato fino alla fine. Gli altri 19 pacchi sono custoditi dai pacchisti delle restanti regioni.</p>
+    <p>L'apertura avviene a gruppi progressivi: <b>6 pacchi</b> nel 1° round, poi <b>3, 3, 2, 2, 1, 1</b> nei round successivi. Al termine di ogni gruppo squilla il telefono in studio: il <b>Dottore</b> valuta i pacchi rimasti e formula la sua proposta.</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">💰 Premi e Pacchi Speciali</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Pacchi Blu:</b> da 0 € a 200 € (0, 1, 10, 20, 50, 100, 200 €). Eliminarli fa salire la media e le offerte del Dottore!</li>
+      <li><b>Pacchi Rossi:</b> da 10.000 € a 300.000 € (10k, 20k, 30k, 50k, 75k, 100k, 200k, 300k €).</li>
+      <li><b>Gennarino (il cane del Dottore):</b> se aperto nei primi 3 pacchi della partita sblocca il <b>Jackpot speciale di 20.000 €</b>, che andrà a sommarsi a qualsiasi vincita finale!</li>
+      <li><b>Pacco Nero:</b> contiene una copia misteriosa di un altro premio presente sul tabellone.</li>
+      <li><b>Ballerina e Invenzione:</b> simpatici siparietti dal valore di 0 €.</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">📞 Il Dottore &amp; Il Finale</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Offerta in denaro:</b> assegno garantito. Scegli <b>AFFARE</b> per incassare la somma e chiudere la partita, oppure <b>NON AFFARE</b> per andare avanti.</li>
+      <li><b>Cambio pacco:</b> facoltà di scambiare il tuo pacco iniziale con uno di quelli ancora chiusi sul palco.</li>
+      <li><b>Finale a 2 pacchi:</b> rimasti con due soli pacchi, puoi tenere il tuo, cambiarlo, oppure tentare <b>La Regione Fortunata</b> (100.000 € al 1° tentativo tra 20 regioni, oppure 50.000 € al 2° tentativo tra 10 regioni).</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi e Consigli</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Clicca direttamente sul pacco 3D sul palco oppure usa i pulsanti numerati nella dock in basso.</li>
+      <li>Monitora costantemente il tabellone laterale per valutare il bilancio tra pacchi blu e rossi rimasti.</li>
+      <li>In multiplayer ogni concorrente gioca la propria puntata contro il Dottore: vince chi accumula il montepremi più alto.</li>
+    </ul>
+  `,
   rules: [
     'Scegli la tua regione: il pacco della tua regione è tuo fino alla fine. Gli altri 19 li tengono i pacchisti delle altre regioni.',
     'Nei pacchi: 0, 1, 10, 20, 50, 100, 200 € (blu) e 10.000 → 300.000 € (rossi), più gli speciali: Pacco Nero (copia nascosta di un premio), Gennarino (jackpot di 20.000 € se esce nei primi 3), Ballerina e Invenzione.',
@@ -228,19 +256,45 @@ export default {
     ctx.onExit(() => { removeEventListener('pointermove', pointer); removeEventListener('pointerdown', pointer); removeEventListener('resize', onResize); clearInterval(ringI); ringing = false; resolvePick = null; document.body.style.cursor = ''; });
     const gridCss = min => `display:grid;grid-template-columns:repeat(auto-fill,minmax(${min}px,1fr));gap:6px;max-height:40vh;overflow:auto;margin-top:6px`;
     const btnCss = 'min-height:42px;padding:4px 6px;font-size:.74rem;letter-spacing:.02em;flex-direction:column;gap:0;line-height:1.1';
-    const pick = (list, meta, sub) => ctx.w(new Promise(res => {
+    const pick = (list, meta, sub) => ctx.w(new Promise(async res => {
+      if (cur?.p?.bot) {
+        pickable = list;
+        await ctx.botThink(500, 1000);
+        pickable = null;
+        res(any(list));
+        return;
+      }
       pickable = list; resolvePick = res;
       const c = h('div', 'card'); c.innerHTML = `<div class="meta"><span>${meta}</span><span>${sub}</span></div>`;
       const g = h('div'); g.style.cssText = gridCss(58);
       [...list].sort((a, b) => a.n - b.n).forEach(b => { const bt = h('button', 'btn', `<b style="font-size:1rem">${b.n}</b><small style="font-size:.58rem;opacity:.75">${esc(b.reg.split(/[ -]/)[0])}</small>`); bt.style.cssText = btnCss; bt.setAttribute('aria-label', `Pacco ${b.n}, ${b.reg}`); bt.onclick = () => choose(b); g.append(bt); });
       c.append(g); ctx.dock(c);
     }));
-    const choice = (meta, html, opts) => ctx.w(new Promise(res => {
+    const choice = (meta, html, opts) => ctx.w(new Promise(async res => {
+      if (cur?.p?.bot) {
+        await ctx.botThink(600, 1200);
+        const acceptOpt = opts.find(o => o[2] === true);
+        const declineOpt = opts.find(o => o[2] === false);
+        if (acceptOpt && declineOpt && cur.offers?.length) {
+          const lastOff = cur.offers[cur.offers.length - 1];
+          const remainingVals = [...sealedOthers(), cur.mine].map(b => b.c.v);
+          const avg = remainingVals.reduce((a, b) => a + b, 0) / (remainingVals.length || 1);
+          res(lastOff >= avg * 0.85);
+          return;
+        }
+        res(opts[0][2]);
+        return;
+      }
       const c = h('div', 'card msg'); c.innerHTML = `<div class="meta"><span>${meta[0]}</span><span>${meta[1]}</span></div>${html}`;
       const row = h('div', 'row'); opts.forEach(([t, cls, v]) => { const b = h('button', 'btn ' + cls, t); b.onclick = () => { sfx.click(); res(v); }; row.append(b); });
       c.append(row); ctx.dock(c); row.querySelector('button').focus();
     }));
-    const regionPick = (meta, sub, list) => ctx.w(new Promise(res => {
+    const regionPick = (meta, sub, list) => ctx.w(new Promise(async res => {
+      if (cur?.p?.bot) {
+        await ctx.botThink(400, 800);
+        res(any(list));
+        return;
+      }
       const c = h('div', 'card'); c.innerHTML = `<div class="meta"><span>${meta}</span><span>${sub}</span></div>`;
       const g = h('div'); g.style.cssText = gridCss(104);
       list.forEach(r => { const b = h('button', 'btn', esc(r)); b.style.cssText = btnCss; b.onclick = () => { sfx.click(); res(r); }; g.append(b); });

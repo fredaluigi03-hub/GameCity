@@ -58,6 +58,31 @@ const FRIENDS = [
 export default {
   id: 'cultura', name: 'Cultura Generale', tag: 'Quindici domande per il milione', desc: 'Dito più veloce, poi la scalata al milione con tre aiuti', c1: '#3b55d9', c2: '#8a5cd8',
   players: {min: 1, max: 4, def: 4}, questions: true,
+  guide: `
+    <h4 style="margin:4px 0 6px;color:var(--gold);font-size:0.95rem">⚡ Il Dito Più Veloce</h4>
+    <p>Prima di salire sulla sedia centrale, i concorrenti affrontano la prova di qualificazione: <b>metti in ordine 4 opzioni</b> (cronologico, grandezza, logica). Chi risponde correttamente nel minor tempo conquista la sedia al centro dello studio. In più giocatori la prova si ripete dopo ogni scalata tra chi non ha ancora giocato.</p>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🪜 La Scalata al Milione (15 Domande)</h4>
+    <p>Al centro dello studio affronti <b>15 domande a 4 scelte (A, B, C, D)</b> dal valore crescente, da 100 € fino a 1.000.000 €:</p>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>Soglie di Sicurezza:</b> raggiunta la <b>5ª domanda (1.000 €)</b> e la <b>10ª domanda (32.000 €)</b>, il traguardo è garantito! Se sbagli successivamente, precipiti all'ultima soglia raggiunta.</li>
+      <li><b>Facoltà di Ritiro:</b> prima di confermare una risposta puoi scegliere di ritirarti con il premio della domanda precedente.</li>
+      <li><b>Risposta Definitiva:</b> per ogni domanda la conduttrice chiede conferma: puoi ragionarci con calma prima di accendere la risposta!</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🆘 I Tre Aiuti (Lifelines)</h4>
+    <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li><b>50:50:</b> il computer elimina automaticamente due risposte errate, lasciando solo la risposta esatta e un'alternativa ingannevole.</li>
+      <li><b>Aiuto del Pubblico:</b> il pubblico in studio vota istantaneamente coi tastierini e viene mostrato un grafico a barre con le percentuali.</li>
+      <li><b>Telefonata a Casa:</b> 30 secondi per consultare un amico esperto a scelta (Zio Franco per storia/geografia, Giulia per scienza/attualità o Marco per sport/musica/cinema).</li>
+    </ul>
+
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🎮 Comandi</h4>
+    <ul style="margin:4px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+      <li>Tasti <b>A, B, C, D</b> o numeri <b>1, 2, 3, 4</b> da tastiera, oppure tocca direttamente le barre delle risposte.</li>
+      <li>Clicca sulle icone degli aiuti o sul pulsante <b>Ritirati</b> nella dock quando vuoi incassare il premio sicuro.</li>
+    </ul>
+  `,
   rules: [
     'Dito più veloce: metti in ordine quattro risposte toccandole in sequenza. Chi ordina giusto nel minor tempo si siede al centro. Con pochi concorrenti le domande dito più veloce sono due, e contano risposte giuste e tempo totale.',
     'Al centro: 15 domande a 4 risposte, sempre più difficili, da 100 € a 1.000.000 €. La difficoltà delle domande scelta nel setup sposta l’intera scala. Prima di accendere una risposta la conduttrice chiede se è definitiva.',
