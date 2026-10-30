@@ -50,6 +50,7 @@ function lobby() {
   teardown(); ui.replaceChildren(); setAccent();
   const S = newStage({c1: '#38bdf8', c2: '#2563eb', cam: [0, 2.6, 15], look: [0, 2.4, 0]});
   S.par = 1.2;
+  S.noOrbit = true;
   const N = GAMES.length, R = 8.5, step = Math.PI * 2 / N;
   const ring = new THREE.Group(); ring.position.y = 2.6; S.add(ring);
   const frameM = new THREE.MeshStandardMaterial({color: '#182236', metalness: .75, roughness: .35});
@@ -98,17 +99,76 @@ function lobby() {
   prev.onclick = () => go(-1); next.onclick = () => go(1);
   const key = e => {
     if (ui.querySelector('.ov')) return;
-    if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'ArrowRight') go(1); else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') intro(GAMES[sel]);
+    const k = e.key.toLowerCase();
+    if (e.key === 'ArrowLeft' || k === 'a') go(-1);
+    else if (e.key === 'ArrowRight' || k === 'd') go(1);
+    else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') intro(GAMES[sel]);
   };
+  let dragging = false, startX = 0, startAng = 0, dragMoved = 0, lastWheel = 0;
   const down = e => {
     if (e.target.id !== 'gl' || ui.querySelector('.ov')) return;
-    const o = raycast(cards, e); if (!o) return;
-    const i = o.userData.id;
-    if (i === sel) intro(GAMES[i]); else { let d = i - sel; if (d > N / 2) d -= N; if (d < -N / 2) d += N; go(d); }
+    dragging = true;
+    startX = e.clientX;
+    startAng = ring.rotation.y;
+    dragMoved = 0;
+    document.body.style.cursor = 'grabbing';
   };
-  const move = e => { if (e.target.id === 'gl') document.body.style.cursor = raycast(cards, e) ? 'pointer' : ''; };
-  addEventListener('keydown', key); addEventListener('pointerdown', down); addEventListener('pointermove', move);
-  teardown = () => { removeEventListener('keydown', key); removeEventListener('pointerdown', down); removeEventListener('pointermove', move); document.body.style.cursor = ''; };
+  const move = e => {
+    if (dragging) {
+      const dx = e.clientX - startX;
+      dragMoved = Math.max(dragMoved, Math.abs(dx));
+      ring.rotation.y = startAng + dx * 0.0045;
+      return;
+    }
+    if (e.target.id === 'gl') document.body.style.cursor = raycast(cards, e) ? 'pointer' : 'grab';
+  };
+  const up = e => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = '';
+    if (dragMoved > 10) {
+      // Snap to nearest card based on ring.rotation.y
+      const rawSteps = Math.round(-ring.rotation.y / step);
+      sel = ((rawSteps % N) + N) % N;
+      ang = -rawSteps * step;
+      sfx.whoosh();
+      tween(ring.rotation, {y: ang}, .55, ease.out);
+      show();
+    } else if (e.target.id === 'gl' && !ui.querySelector('.ov')) {
+      const o = raycast(cards, e);
+      if (!o) return;
+      const i = o.userData.id;
+      if (i === sel) intro(GAMES[i]);
+      else {
+        let d = i - sel;
+        if (d > N / 2) d -= N;
+        if (d < -N / 2) d += N;
+        go(d);
+      }
+    }
+  };
+  const wheel = e => {
+    if (ui.querySelector('.ov')) return;
+    const now = performance.now();
+    if (now - lastWheel < 220) return;
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (Math.abs(delta) < 8) return;
+    lastWheel = now;
+    go(delta > 0 ? 1 : -1);
+  };
+  addEventListener('keydown', key);
+  addEventListener('pointerdown', down);
+  addEventListener('pointermove', move);
+  addEventListener('pointerup', up);
+  addEventListener('wheel', wheel, {passive: true});
+  teardown = () => {
+    removeEventListener('keydown', key);
+    removeEventListener('pointerdown', down);
+    removeEventListener('pointermove', move);
+    removeEventListener('pointerup', up);
+    removeEventListener('wheel', wheel);
+    document.body.style.cursor = '';
+  };
   show();
 }
 

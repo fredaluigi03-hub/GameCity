@@ -123,9 +123,60 @@ function resize() {
   renderer.setSize(w, h, false); composer.setSize(w, h);
   if (S) { S.camera.aspect = w / h; S.camera.fov = w / h < .8 ? 88 : w / h < 1.2 ? 66 : 50; S.camera.updateProjectionMatrix(); }
 }
+const orbit = { active: false, pan: false, x: 0, y: 0, moved: 0, keys: new Set() };
 if (hasBrowser) {
   addEventListener('resize', resize);
-  addEventListener('pointermove', e => { mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1; });
+  addEventListener('pointermove', e => {
+    mouse.x = e.clientX / innerWidth * 2 - 1;
+    mouse.y = e.clientY / innerHeight * 2 - 1;
+    if (!orbit.active || !S || S.noOrbit) return;
+    const dx = e.clientX - orbit.x, dy = e.clientY - orbit.y;
+    orbit.x = e.clientX; orbit.y = e.clientY;
+    orbit.moved += Math.hypot(dx, dy);
+    const offset = S.cp.clone().sub(S.cl);
+    if (orbit.pan || e.shiftKey) {
+      // Pan across horizontal plane + vertical lift
+      const right = new V3().subVectors(S.cl, S.cp).setY(0).normalize().cross(new V3(0, 1, 0)).normalize();
+      const fwd = new V3().subVectors(S.cl, S.cp).setY(0).normalize();
+      const scale = Math.max(0.008, offset.length() * 0.0018);
+      const move = right.multiplyScalar(-dx * scale).addScaledVector(fwd, dy * scale);
+      S.cp.add(move); S.cl.add(move);
+    } else {
+      // Spherical orbit around S.cl
+      const sph = new THREE.Spherical().setFromVector3(offset);
+      sph.theta -= dx * 0.0065;
+      sph.phi = Math.max(0.14, Math.min(Math.PI * 0.47, sph.phi - dy * 0.0055));
+      offset.setFromSpherical(sph);
+      S.cp.copy(S.cl).add(offset);
+    }
+  });
+  addEventListener('pointerdown', e => {
+    if (e.target?.id !== 'gl' || !S || S.noOrbit) return;
+    orbit.active = true;
+    orbit.pan = e.button === 2 || e.button === 1;
+    orbit.x = e.clientX; orbit.y = e.clientY;
+    orbit.moved = 0;
+  });
+  addEventListener('pointerup', () => { orbit.active = false; });
+  addEventListener('contextmenu', e => { if (e.target?.id === 'gl' && S && !S.noOrbit) e.preventDefault(); });
+  addEventListener('wheel', e => {
+    if (e.target?.id !== 'gl' || !S || S.noOrbit) return;
+    e.preventDefault();
+    const offset = S.cp.clone().sub(S.cl);
+    const dist = offset.length();
+    const nextDist = Math.max(2.2, Math.min(28, dist * (1 + Math.sign(e.deltaY) * 0.1)));
+    offset.setLength(nextDist);
+    S.cp.copy(S.cl).add(offset);
+  }, { passive: false });
+  addEventListener('keydown', e => {
+    const tag = e.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const k = e.key.toLowerCase();
+    if (['w', 'a', 's', 'd', 'q', 'e'].includes(k)) orbit.keys.add(k);
+  });
+  addEventListener('keyup', e => {
+    orbit.keys.delete(e.key.toLowerCase());
+  });
 }
 
 const rc = new THREE.Raycaster(), v2 = new THREE.Vector2();
@@ -370,6 +421,22 @@ function loop() {
   }
   if (!S) return;
   S.t += dt;
+  if (!S.noOrbit && orbit.keys.size > 0) {
+    const fwd = new V3().subVectors(S.cl, S.cp).setY(0).normalize();
+    const right = fwd.clone().cross(new V3(0, 1, 0)).normalize();
+    const spd = 7.5 * dt;
+    if (orbit.keys.has('w')) { S.cp.addScaledVector(fwd, spd); S.cl.addScaledVector(fwd, spd); }
+    if (orbit.keys.has('s')) { S.cp.addScaledVector(fwd, -spd); S.cl.addScaledVector(fwd, -spd); }
+    if (orbit.keys.has('d')) { S.cp.addScaledVector(right, spd); S.cl.addScaledVector(right, spd); }
+    if (orbit.keys.has('a')) { S.cp.addScaledVector(right, -spd); S.cl.addScaledVector(right, -spd); }
+    if (orbit.keys.has('q') || orbit.keys.has('e')) {
+      const offset = S.cp.clone().sub(S.cl);
+      const sph = new THREE.Spherical().setFromVector3(offset);
+      sph.theta += (orbit.keys.has('q') ? 1 : -1) * 1.6 * dt;
+      offset.setFromSpherical(sph);
+      S.cp.copy(S.cl).add(offset);
+    }
+  }
   for (const f of [...S.upd]) f(dt, S.t);
   // camera: critically-damped-ish spring with substeps (stable at low fps)
   const cam = S.camera; let rem = Math.min(raw, .25);

@@ -753,9 +753,15 @@ export default {
       renderLeftPanel();
     }
 
-    // Raycast click on 3D board tiles to inspect any property
+    // Raycast click on 3D board tiles to inspect any property (ignores camera drag)
+    let pDownX = 0, pDownY = 0;
     const onPointerDown3D = e => {
+      pDownX = e.clientX;
+      pDownY = e.clientY;
+    };
+    const onPointerUp3D = e => {
       if (e.target.id !== 'gl' || ctx.dead) return;
+      if (Math.hypot(e.clientX - pDownX, e.clientY - pDownY) > 6) return;
       const hit = raycast(tileHitMeshes, e);
       if (hit && hit.userData.id !== undefined) {
         sfx.click();
@@ -763,7 +769,11 @@ export default {
       }
     };
     addEventListener('pointerdown', onPointerDown3D);
-    ctx.onExit(() => removeEventListener('pointerdown', onPointerDown3D));
+    addEventListener('pointerup', onPointerUp3D);
+    ctx.onExit(() => {
+      removeEventListener('pointerdown', onPointerDown3D);
+      removeEventListener('pointerup', onPointerUp3D);
+    });
 
     function renderDeedInspector(idx) {
       const c = BOARD[idx];
