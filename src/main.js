@@ -128,7 +128,7 @@ function diffRow(label, value, onPick) {
 }
 
 // player setup: count, CPU fill, names, difficulty. Calls launch(g, cfg) with cfg = {seats:[{name,color,bot}], cpu, cpuDiff, qDiff, finalOnly}
-function setup(g) {
+function setup(g, preConfig = {}) {
   const P = {min: 1, max: 4, def: 1, ...g.players};
   delete P.cpuRequiredBelow; // eliminate rigid lockout so users can choose freely
   const saved = store.get('names', []);
@@ -167,7 +167,7 @@ function setup(g) {
   const seatTokens = new Map();
 
   const finalInfo = GAME_FINALS[g.id];
-  let finalOnly = false;
+  let finalOnly = !!(preConfig?.finalOnly || g.forceFinalOnly);
   let modeRow = null;
   if (finalInfo) {
     modeRow = h('div', 'diffRow');
@@ -176,8 +176,11 @@ function setup(g) {
     topMode.style.cssText = 'justify-content:space-between;width:100%;align-items:center;';
     topMode.innerHTML = '<span class="lbl" style="font-weight:700;">Modalità di Gioco</span>';
     const modeSeg = h('div', 'seg');
-    const bFull = h('button', 'segb on', '🌟 Partita Completa');
-    const bFinal = h('button', 'segb', `🏆 Solo Round Finale (${finalInfo.name})`);
+    const bFull = h('button', 'segb' + (!finalOnly ? ' on' : ''), '🌟 Partita Completa');
+    const bFinal = h('button', 'segb' + (finalOnly ? ' on' : ''), `🏆 Solo Round Finale (${finalInfo.name})`);
+    if (finalOnly) {
+      bFinal.style.cssText = 'background:linear-gradient(135deg, rgba(234,179,8,0.3), rgba(245,158,11,0.5));border-color:#fbbf24;color:#fef08a;font-weight:700;';
+    }
     const descMode = h('p', 'sub', '');
     descMode.style.cssText = 'font-size:0.8rem;line-height:1.45;color:#cbd5e1;margin:2px 0 6px;padding:6px 10px;background:rgba(255,255,255,0.05);border-radius:8px;';
     const updateModeUI = () => {

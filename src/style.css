@@ -707,6 +707,38 @@ form.in .btn { flex: none; padding: 0 22px; }
   margin: 4px 0 8px;
   text-align: center;
 }
+.backHubPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.22), rgba(59, 130, 246, 0.28));
+  border: 1.5px solid #fbbf24;
+  color: #fef08a;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 12px rgba(251, 191, 36, 0.35);
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+.backHubPill:hover, .backHubPill:active {
+  background: #fbbf24;
+  color: #0f172a;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.7);
+  transform: translateY(-1px);
+}
+.backToHubCardBtn {
+  background: rgba(251, 191, 36, 0.12) !important;
+  border: 1.5px solid #fbbf24 !important;
+  color: #fef08a !important;
+  font-weight: 700 !important;
+}
+.backToHubCardBtn:hover {
+  background: #fbbf24 !important;
+  color: #0f172a !important;
+}
 .dpadToggleBtn {
   display: none;
 }
