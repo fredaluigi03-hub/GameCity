@@ -869,96 +869,322 @@ form.in .btn { flex: none; padding: 0 22px; }
 .tombolaTabellone {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 3px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(10, 15, 28, 0.75);
-  border: 1px solid var(--line-soft);
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 .tbCell {
-  aspect-ratio: 1.1;
+  aspect-ratio: 1.15;
   display: grid;
   place-items: center;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: clamp(0.72rem, 1.2vw, 0.95rem);
-  font-weight: 700;
-  color: var(--mut);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: clamp(0.75rem, 1.3vw, 1.05rem);
+  font-weight: 800;
+  color: #94a3b8;
   transition: all .25s var(--ease);
+  position: relative;
 }
 .tbCell.drawn {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #111827;
   border-color: #fbbf24;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
-  transform: scale(1.04);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+  transform: scale(1.05);
+  z-index: 2;
 }
 
-/* Cartelle dei giocatori */
+/* Cartelle dei giocatori autentiche napoletane */
 .tombolaCardsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 .tombolaCard {
-  background: var(--glass);
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.08) 0%, rgba(15, 23, 42, 0.88) 100%);
+  border: 1.5px solid var(--cardBorder, rgba(245, 158, 11, 0.35));
   border-radius: 12px;
-  padding: 10px;
-  box-shadow: var(--shadow);
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  transition: border-color .3s;
+  gap: 8px;
+  transition: all .3s var(--ease);
+  position: relative;
+  overflow: hidden;
+}
+.tombolaCard::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--cardTheme, #dc2626);
 }
 .tombolaCard.winner {
   border-color: #f59e0b;
-  box-shadow: 0 0 24px rgba(245, 158, 11, 0.35);
+  box-shadow: 0 0 28px rgba(245, 158, 11, 0.5), inset 0 0 16px rgba(245, 158, 11, 0.15);
+  animation: pulseCard 1.8s infinite alternate;
+}
+@keyframes pulseCard {
+  from { border-color: #f59e0b; }
+  to { border-color: #fcd34d; }
 }
 .tombolaCardHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   color: var(--mut);
 }
-.tombolaCardHeader span { color: #ffffff; }
+.tombolaCardHeader b { color: #ffffff; }
 .tombolaCardTable {
   display: grid;
   grid-template-columns: repeat(9, minmax(0, 1fr));
-  gap: 2px;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .tCell {
   aspect-ratio: 1.1;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   display: grid;
   place-items: center;
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: clamp(0.85rem, 1.4vw, 1.05rem);
+  font-family: "Outfit", sans-serif;
+  font-weight: 800;
   color: #f8fafc;
   cursor: pointer;
   position: relative;
-  transition: background .2s, transform .2s;
+  transition: all .2s;
+  user-select: none;
 }
-.tCell.empty { background: transparent; border-color: transparent; cursor: default; }
+.tCell:hover:not(.empty) {
+  border-color: rgba(245, 158, 11, 0.6);
+  transform: scale(1.04);
+}
+.tCell.empty {
+  background: rgba(0, 0, 0, 0.22);
+  border-color: transparent;
+  cursor: default;
+}
+.tCell.empty::before {
+  content: "·";
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 1.1rem;
+}
 .tCell.marked {
-  background: rgba(16, 185, 129, 0.28);
-  border-color: var(--ok);
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.6);
   color: #ffffff;
 }
 .tCell.marked::after {
   content: "";
   position: absolute;
-  width: 14px; height: 14px;
+  width: 18px; height: 18px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #ef4444, #991b1b);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  animation: dropFagiolo 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes dropFagiolo {
+  from { transform: scale(0.2) translateY(-10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Setup Wizard Modal della Tombola */
+.tombolaWizardOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.3s ease;
+}
+.tombolaWizardCard {
+  width: min(820px, 98vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  border: 1.5px solid rgba(245, 158, 11, 0.45);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.2);
+  border-radius: 20px;
+  padding: 24px 28px;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.wizardStepsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 14px;
+}
+.wizardStepBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #f59e0b;
+}
+.wizardTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wizardPrizeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.wizardPrizeItem {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wizardPrizeItem label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f59e0b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.wizardPrizeInput {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.wizardPrizeInput:focus {
+  border-color: #f59e0b;
+}
+.dealerChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+.dealerOptionCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all .25s var(--ease);
+}
+.dealerOptionCard:hover {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.dealerOptionCard.selected {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: #f59e0b;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
+}
+.playerCardConfigRow {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.colorPickerRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.colorDotBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: transform .2s, border-color .2s;
+}
+.colorDotBtn.active {
+  border-color: #ffffff;
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+.qtyBtnGroup {
+  display: flex;
+  gap: 6px;
+}
+.qtyBtn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+  cursor: pointer;
+}
+.qtyBtn.active {
+  background: #f59e0b;
+  color: #111827;
+  border-color: #fbbf24;
+}
+
+/* Master Tabellone 90 Numeri Modal */
+.masterTabelloneModal {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(2, 6, 23, 0.92);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.masterTabelloneCard {
+  width: min(1040px, 98vw);
+  max-height: 94vh;
+  overflow-y: auto;
+  background: #0d1222;
+  border: 2px solid #f59e0b;
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 40px rgba(245, 158, 11, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* 3. BINGO VIP CASINO */
