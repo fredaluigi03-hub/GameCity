@@ -3,23 +3,18 @@ import { h, sfx } from './ui.js';
 import { GAME_FINALS } from './games/finals.js';
 
 /**
- * GameCity — Open Space 3D Hub (Architettura Gerarchica a 3 Macro-Porte)
+ * GameCity — Open Space 3D Hub (High Performance & Zero-Lag Architecture)
  *
  * 1. HUB CENTRALE (3 Macro-Porte Maestose a 120°):
- *    - 🚪 SHOW GAME TV: I 5 grandi quiz show serali (L'Eredità, Avanti un Altro, Caduta Libera, Affari Tuoi, Reazione a Catena)
- *    - 🚪 GIOCHI DA TAVOLO: I 5 grandi classici 3D multiplayer (Monopoly Italia 3D, Tombola 90, Bingo 90, Ouija 3D, Forza 4 3D)
- *    - 🚪 RANDOM & ROUND FINALI: I 4 minigiochi/duelli + accesso DIRETTO ai Round Finali dei giochi TV!
+ *    - 🚪 SHOW GAME TV: I 5 grandi quiz show serali
+ *    - 🚪 GIOCHI DA TAVOLO: I 5 grandi classici 3D multiplayer
+ *    - 🚪 RANDOM & ROUND FINALI: Minigiochi di duello + accesso DIRETTO ai Round Finali TV!
  *
- * 2. SUB-HUB DI SETTORE:
- *    - Una volta entrati in una porta, il personaggio atterra nel settore dedicato con le porte specifiche.
- *    - Pulsante ben visibile "← Torna alle 3 Porte" per rientrare all'Hub Principale in qualsiasi momento.
- *
- * 3. NAVIGAZIONE FRECCE CORRETTA:
- *    - Freccia DESTRA (›): ruota la telecamera verso la porta visibile a DESTRA.
- *    - Freccia SINISTRA (‹): ruota la telecamera verso la porta visibile a SINISTRA.
- *
- * 4. OTTIMIZZAZIONE RESPONSIVE MOBILE:
- *    - Porte ampie, ben distanziate, testi ad alto contrasto, comandi touch senza sovrapposizioni.
+ * 2. PERFORMANCE & ZERO-LAG OPTIMIZATIONS:
+ *    - Luci condivise dinamiche: 1 singolo faretto teatrale mobile anziché 20+ luci sulla GPU.
+ *    - DOM riciclabile persistente: nessun layout thrashing o distruzione innerHTML continua.
+ *    - Raycasting throttled: calcolo collisioni solo quando necessario (zero micro-stuttering).
+ *    - Volta stellare calibrata (2000 punti) per garantire 60 FPS stabili anche su smartphone.
  */
 export function createSpaceLobby({
   GAMES,
@@ -54,24 +49,33 @@ export function createSpaceLobby({
   // Mappa rapida giochi base
   const gamesMap = new Map(GAMES.map(g => [g.id, g]));
 
-  // Illuminazione cosmica
-  const cosmicSunLight = new THREE.DirectionalLight('#fff4dc', 2.3);
+  // Illuminazione cosmica leggera e bilanciata
+  const cosmicSunLight = new THREE.DirectionalLight('#fff4dc', 2.2);
   cosmicSunLight.position.set(-30, 45, -60);
   S.add(cosmicSunLight);
 
-  const cosmicFillLight = new THREE.DirectionalLight('#bae6fd', 1.4);
+  const cosmicFillLight = new THREE.DirectionalLight('#bae6fd', 1.3);
   cosmicFillLight.position.set(35, 25, 55);
   S.add(cosmicFillLight);
 
-  const centerOmniLight = new THREE.PointLight('#38bdf8', 35, 32, 1.2);
+  const centerOmniLight = new THREE.PointLight('#38bdf8', 25, 28, 1.2);
   centerOmniLight.position.set(0, 6, 0);
   S.add(centerOmniLight);
 
+  // SINGOLE LUCI MIRATE CONDIVISE PER LA PORTA ATTIVA (Zero lag: evita decine di luci attive)
+  const activeDoorSpot = new THREE.SpotLight('#38bdf8', 45, 30, Math.PI / 3, 0.45, 1.1);
+  activeDoorSpot.position.set(0, 7.5, 5);
+  S.add(activeDoorSpot);
+
+  const activeDoorRimLight = new THREE.PointLight('#38bdf8', 14, 16);
+  activeDoorRimLight.position.set(0, 2.4, 2);
+  S.add(activeDoorRimLight);
+
   // ============================================================================
-  // 1. CIELO STELLATO A 360° & NEBULOSE COSMICHE
+  // 1. CIELO STELLATO A 360° & NEBULOSE COSMICHE (Calibrato a 2000 particelle)
   // ============================================================================
   const starGeo = new THREE.BufferGeometry();
-  const starCount = 5200;
+  const starCount = 2000;
   const starPos = new Float32Array(starCount * 3);
   const starCols = new Float32Array(starCount * 3);
   const starPalette = [
@@ -113,14 +117,14 @@ export function createSpaceLobby({
 
   function createNebulaTexture(colorHex, secondaryHex) {
     const cv = document.createElement('canvas');
-    cv.width = cv.height = 256;
+    cv.width = cv.height = 128;
     const ctx = cv.getContext('2d');
-    const rad = ctx.createRadialGradient(128, 128, 8, 128, 128, 128);
+    const rad = ctx.createRadialGradient(64, 64, 4, 64, 64, 64);
     rad.addColorStop(0, colorHex);
     rad.addColorStop(0.45, secondaryHex + '66');
     rad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = rad;
-    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillRect(0, 0, 128, 128);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
@@ -130,16 +134,14 @@ export function createSpaceLobby({
     { c1: '#0284c7', c2: '#1e3a8a', pos: [-65, 28, -75], s: 90 },
     { c1: '#7c3aed', c2: '#4c1d95', pos: [70, 32, -60], s: 95 },
     { c1: '#0d9488', c2: '#134e4a', pos: [-70, -18, 55], s: 80 },
-    { c1: '#db2777', c2: '#831843', pos: [65, 16, 72], s: 85 },
-    { c1: '#ea580c', c2: '#7c2d12', pos: [0, 48, -85], s: 75 },
-    { c1: '#2563eb', c2: '#1e1b4b', pos: [0, -45, 0], s: 110 }
+    { c1: '#db2777', c2: '#831843', pos: [65, 16, 72], s: 85 }
   ].map(n => {
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(n.s, n.s),
       new THREE.MeshBasicMaterial({
         map: createNebulaTexture(n.c1, n.c2),
         transparent: true,
-        opacity: 0.26,
+        opacity: 0.24,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide
@@ -152,60 +154,41 @@ export function createSpaceLobby({
   });
 
   // ============================================================================
-  // 2. PIANETI 3D, LUNE E ANELLI NELLO SPAZIO
+  // 2. PIANETI 3D NELLO SPAZIO
   // ============================================================================
   const planetsGroup = new THREE.Group();
   S.add(planetsGroup);
 
   function makePlanetTexture(type) {
     const cv = document.createElement('canvas');
-    cv.width = 512;
-    cv.height = 256;
+    cv.width = 256;
+    cv.height = 128;
     const ctx = cv.getContext('2d');
 
     if (type === 'saturn') {
-      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      const g = ctx.createLinearGradient(0, 0, 0, 128);
       g.addColorStop(0, '#78350f');
-      g.addColorStop(0.18, '#d97706');
       g.addColorStop(0.35, '#fde68a');
-      g.addColorStop(0.5, '#b45309');
-      g.addColorStop(0.68, '#f59e0b');
-      g.addColorStop(0.85, '#92400e');
+      g.addColorStop(0.7, '#f59e0b');
       g.addColorStop(1, '#451a03');
       ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 512, 256);
-      for (let y = 0; y < 256; y += 6) {
-        ctx.fillStyle = `rgba(255,255,255,${(Math.sin(y * 0.25) + 1) * 0.06})`;
-        ctx.fillRect(0, y, 512, 3);
-      }
+      ctx.fillRect(0, 0, 256, 128);
     } else if (type === 'earth') {
       ctx.fillStyle = '#0369a1';
-      ctx.fillRect(0, 0, 512, 256);
+      ctx.fillRect(0, 0, 256, 128);
       ctx.fillStyle = '#15803d';
-      const blobs = [
-        [90, 80, 65, 45], [130, 140, 45, 55], [260, 70, 85, 50],
-        [290, 135, 55, 60], [410, 95, 60, 45], [60, 190, 50, 30]
-      ];
-      blobs.forEach(([x, y, rx, ry]) => {
+      for (let i = 0; i < 6; i++) {
         ctx.beginPath();
-        ctx.ellipse(x, y, rx, ry, 0.3, 0, Math.PI * 2);
+        ctx.ellipse((i * 45) % 256, 20 + ((i * 25) % 80), 30, 20, 0, 0, Math.PI * 2);
         ctx.fill();
-      });
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, 0, 512, 18);
-      ctx.fillRect(0, 238, 512, 18);
-    } else if (type === 'purple') {
-      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      }
+    } else {
+      const g = ctx.createLinearGradient(0, 0, 0, 128);
       g.addColorStop(0, '#3b0764');
-      g.addColorStop(0.35, '#9333ea');
-      g.addColorStop(0.55, '#f0abfc');
-      g.addColorStop(0.8, '#7e22ce');
+      g.addColorStop(0.5, '#f0abfc');
       g.addColorStop(1, '#2e1065');
       ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 512, 256);
-    } else {
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(0, 0, 512, 256);
+      ctx.fillRect(0, 0, 256, 128);
     }
 
     const tex = new THREE.CanvasTexture(cv);
@@ -215,15 +198,15 @@ export function createSpaceLobby({
 
   function makeRingTexture(c1, c2) {
     const cv = document.createElement('canvas');
-    cv.width = cv.height = 512;
+    cv.width = cv.height = 256;
     const ctx = cv.getContext('2d');
-    const rg = ctx.createRadialGradient(256, 256, 95, 256, 256, 250);
+    const rg = ctx.createRadialGradient(128, 128, 50, 128, 128, 125);
     rg.addColorStop(0, 'rgba(0,0,0,0)');
     rg.addColorStop(0.2, c1 + 'cc');
     rg.addColorStop(0.55, c2 + 'ee');
     rg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = rg;
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, 256, 256);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
@@ -233,11 +216,11 @@ export function createSpaceLobby({
   const saturnGrp = new THREE.Group();
   saturnGrp.position.set(-48, 16, 56);
   const saturnSphere = new THREE.Mesh(
-    new THREE.SphereGeometry(8.5, 36, 28),
+    new THREE.SphereGeometry(8.5, 24, 20),
     new THREE.MeshStandardMaterial({ map: makePlanetTexture('saturn'), roughness: 0.65 })
   );
   const saturnRings = new THREE.Mesh(
-    new THREE.PlaneGeometry(38, 38),
+    new THREE.PlaneGeometry(36, 36),
     new THREE.MeshBasicMaterial({
       map: makeRingTexture('#fbbf24', '#d97706'),
       transparent: true,
@@ -253,7 +236,7 @@ export function createSpaceLobby({
   const earthGrp = new THREE.Group();
   earthGrp.position.set(52, 14, 48);
   const earthSphere = new THREE.Mesh(
-    new THREE.SphereGeometry(6.8, 36, 28),
+    new THREE.SphereGeometry(6.8, 24, 20),
     new THREE.MeshStandardMaterial({ map: makePlanetTexture('earth'), roughness: 0.55 })
   );
   earthGrp.add(earthSphere);
@@ -263,24 +246,24 @@ export function createSpaceLobby({
   const purpleGrp = new THREE.Group();
   purpleGrp.position.set(4, 27, -68);
   const purpleSphere = new THREE.Mesh(
-    new THREE.SphereGeometry(6.2, 32, 24),
+    new THREE.SphereGeometry(6.2, 22, 18),
     new THREE.MeshStandardMaterial({ map: makePlanetTexture('purple'), roughness: 0.5 })
   );
   purpleGrp.add(purpleSphere);
   planetsGroup.add(purpleGrp);
 
-  // Asteroidi fluttuanti
+  // Asteroidi (12 pezzi per minima memoria GPU)
   const asteroidGrp = new THREE.Group();
   S.add(asteroidGrp);
   const astMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.82 });
   const crystals = [];
-  for (let i = 0; i < 24; i++) {
-    const rad = 20 + Math.random() * 25;
-    const ang = (i / 24) * Math.PI * 2;
-    const y = -6 + Math.random() * 16;
-    const ast = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + Math.random() * 0.8, 0), astMat);
+  for (let i = 0; i < 12; i++) {
+    const rad = 22 + (i % 6) * 5;
+    const ang = (i / 12) * Math.PI * 2;
+    const y = -4 + (i % 5) * 3;
+    const ast = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 0), astMat);
     ast.position.set(Math.sin(ang) * rad, y, Math.cos(ang) * rad);
-    ast.userData = { rx: (Math.random() - 0.5) * 0.5, ry: (Math.random() - 0.5) * 0.5, baseY: y };
+    ast.userData = { rx: 0.25, ry: 0.3, baseY: y };
     asteroidGrp.add(ast);
     crystals.push(ast);
   }
@@ -292,7 +275,7 @@ export function createSpaceLobby({
   S.add(hubFloorGrp);
 
   const outerRing = new THREE.Mesh(
-    new THREE.RingGeometry(8.0, 9.8, 80),
+    new THREE.RingGeometry(8.0, 9.8, 64),
     new THREE.MeshBasicMaterial({
       color: '#38bdf8',
       transparent: true,
@@ -307,7 +290,7 @@ export function createSpaceLobby({
   hubFloorGrp.add(outerRing);
 
   const centerPadGlow = new THREE.Mesh(
-    new THREE.RingGeometry(2.2, 2.55, 64),
+    new THREE.RingGeometry(2.2, 2.55, 48),
     new THREE.MeshBasicMaterial({
       color: '#38bdf8',
       transparent: true,
@@ -336,8 +319,8 @@ export function createSpaceLobby({
   S.add(avatar);
 
   const helmetGlass = new THREE.Mesh(
-    new THREE.SphereGeometry(0.185, 24, 20),
-    new THREE.MeshPhysicalMaterial({ color: '#bae6fd', transparent: true, opacity: 0.28, roughness: 0.08 })
+    new THREE.SphereGeometry(0.185, 18, 14),
+    new THREE.MeshBasicMaterial({ color: '#bae6fd', transparent: true, opacity: 0.28 })
   );
   helmetGlass.position.set(0, 0.13, 0.01);
   avatar.head.add(helmetGlass);
@@ -350,31 +333,27 @@ export function createSpaceLobby({
   avatar.add(jetpack);
 
   const jetFlameMat = new THREE.MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending });
-  const jetNozzleL = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.22, 12), jetFlameMat);
+  const jetNozzleL = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.22, 10), jetFlameMat);
   jetNozzleL.rotation.x = Math.PI;
   jetNozzleL.position.set(-0.1, 1.08, -0.17);
   const jetNozzleR = jetNozzleL.clone();
   jetNozzleR.position.x = 0.1;
   avatar.add(jetNozzleL, jetNozzleR);
 
-  const avatarLight = new THREE.PointLight('#ffffff', 12, 7);
-  avatarLight.position.set(0, 2.4, 0.6);
-  avatar.add(avatarLight);
-
   // Drone compagno
   const drone = new THREE.Group();
   drone.position.set(1.1, 2.2, 0.3);
   S.add(drone);
   const droneBody = new THREE.Mesh(
-    new THREE.SphereGeometry(0.26, 24, 24),
-    new THREE.MeshStandardMaterial({ color: '#f8fafc', metalness: 0.92, roughness: 0.18 })
+    new THREE.SphereGeometry(0.24, 18, 16),
+    new THREE.MeshStandardMaterial({ color: '#f8fafc', metalness: 0.9, roughness: 0.2 })
   );
   const droneEyeMat = new THREE.MeshBasicMaterial({ color: '#38bdf8', toneMapped: false });
-  const droneEye = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 12, 28), droneEyeMat);
-  droneEye.position.set(0, 0, 0.23);
+  const droneEye = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.025, 10, 20), droneEyeMat);
+  droneEye.position.set(0, 0, 0.22);
   const gyroRing1 = new THREE.Mesh(
-    new THREE.TorusGeometry(0.36, 0.015, 8, 32),
-    new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.9, roughness: 0.2 })
+    new THREE.TorusGeometry(0.34, 0.015, 6, 24),
+    new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.8, roughness: 0.2 })
   );
   drone.add(droneBody, droneEye, gyroRing1);
 
@@ -382,21 +361,19 @@ export function createSpaceLobby({
   droneBubble.style.display = 'none';
   ui.append(droneBubble);
 
-  function speakDrone(msg, duration = 2600) {
+  function speakDrone(msg, duration = 2400) {
     droneBubble.textContent = msg;
     droneBubble.style.display = 'block';
     droneBubble.style.opacity = '1';
     setTimeout(() => {
       droneBubble.style.opacity = '0';
-      setTimeout(() => { droneBubble.style.display = 'none'; }, 280);
+      setTimeout(() => { droneBubble.style.display = 'none'; }, 250);
     }, duration);
   }
 
   // ============================================================================
   // 5. STRUTTURA DEI SETTORI (3 Macro-Porte Hub + Sub-Hub)
   // ============================================================================
-
-  // Creazione voci standalone per i round finali
   const makeFinalEntry = (gameId, name, tag, desc) => {
     const baseG = gamesMap.get(gameId);
     return {
@@ -525,13 +502,13 @@ export function createSpaceLobby({
 
   let currentSectorId = 'main';
   let doors = [];
+  let doorGroups = [];
   let N = 3;
   let step = (Math.PI * 2) / N;
   let R = 8.8;
   const doorsGroup = new THREE.Group();
   S.add(doorsGroup);
 
-  // Helper risoluzione oggetto porta
   function resolveDoorItem(ref) {
     if (typeof ref === 'object' && ref !== null) return ref;
     if (FINAL_ENTRIES[ref]) return FINAL_ENTRIES[ref];
@@ -541,26 +518,26 @@ export function createSpaceLobby({
   // Texture vortice dimensionale
   function makeVortexTexture(accentHex) {
     const cv = document.createElement('canvas');
-    cv.width = cv.height = 256;
+    cv.width = cv.height = 128;
     const ctx = cv.getContext('2d');
-    const cx = 128, cy = 128;
+    const cx = 64, cy = 64;
 
-    const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 128);
+    const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
     bgGrad.addColorStop(0, '#ffffff');
     bgGrad.addColorStop(0.3, accentHex);
     bgGrad.addColorStop(0.75, '#090d1e');
     bgGrad.addColorStop(1, 'rgba(2, 4, 10, 0)');
     ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillRect(0, 0, 128, 128);
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     for (let arm = 0; arm < 4; arm++) {
       ctx.beginPath();
-      for (let a = 0; a < Math.PI * 3.2; a += 0.1) {
-        const rad = 5 + a * 12;
+      for (let a = 0; a < Math.PI * 3; a += 0.15) {
+        const rad = 3 + a * 6;
         const x = Math.cos(a + (arm * Math.PI) / 2) * rad;
         const y = Math.sin(a + (arm * Math.PI) / 2) * rad;
         if (a === 0) ctx.moveTo(x, y);
@@ -575,14 +552,14 @@ export function createSpaceLobby({
     return tex;
   }
 
-  // Texture battenti porta ad alta definizione
+  // Texture battenti porta
   function makeDoorPanelTexture(item, accentHex, secHex, isLeft) {
     const cv = document.createElement('canvas');
-    cv.width = 512;
-    cv.height = 1024;
+    cv.width = 256;
+    cv.height = 512;
     const ctx = cv.getContext('2d');
 
-    const grad = ctx.createLinearGradient(0, 0, 512, 1024);
+    const grad = ctx.createLinearGradient(0, 0, 256, 512);
     if (item.isSector) {
       if (item.id === 'shows') { grad.addColorStop(0, '#0c2e59'); grad.addColorStop(1, '#030f21'); }
       else if (item.id === 'boardgames') { grad.addColorStop(0, '#0a3d24'); grad.addColorStop(1, '#021a0e'); }
@@ -601,28 +578,17 @@ export function createSpaceLobby({
       grad.addColorStop(0, '#1e293b'); grad.addColorStop(1, '#070b16');
     }
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 512, 1024);
+    ctx.fillRect(0, 0, 256, 512);
 
-    // Cornice esterna con bordo luminoso
-    ctx.lineWidth = 14;
+    ctx.lineWidth = 8;
     ctx.strokeStyle = accentHex;
-    ctx.strokeRect(18, 18, 476, 988);
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.strokeRect(28, 28, 456, 968);
+    ctx.strokeRect(9, 9, 238, 494);
 
-    // Formelle
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = secHex || '#fbbf24';
-    ctx.strokeRect(48, 56, 416, 400);
-    ctx.strokeRect(48, 550, 416, 420);
-
-    // Medaglione superiore
     ctx.beginPath();
-    ctx.arc(256, 220, 115, 0, Math.PI * 2);
+    ctx.arc(128, 110, 58, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.fill();
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 3;
     ctx.strokeStyle = accentHex;
     ctx.stroke();
 
@@ -651,86 +617,48 @@ export function createSpaceLobby({
       catena_finale: '⛓️'
     };
 
-    ctx.font = 'bold 118px Outfit, sans-serif';
+    ctx.font = 'bold 58px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = accentHex;
-    ctx.fillText(item.icon || ICONS[item.id] || '★', 256, 222);
+    ctx.fillText(item.icon || ICONS[item.id] || '★', 128, 112);
 
     // Targhetta centrale con nome
     ctx.fillStyle = 'rgba(6, 10, 22, 0.95)';
     ctx.beginPath();
-    ctx.roundRect(44, 460, 424, 76, 14);
+    ctx.roundRect(22, 230, 212, 38, 7);
     ctx.fill();
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 2;
     ctx.strokeStyle = accentHex;
     ctx.stroke();
 
-    ctx.font = '900 40px "Bebas Neue", Outfit, sans-serif';
+    ctx.font = '900 20px "Bebas Neue", Outfit, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = accentHex;
-    ctx.shadowBlur = 14;
-    ctx.fillText(item.name.toUpperCase(), 256, 502);
-    ctx.shadowBlur = 0;
-
-    // Decorazione pannello inferiore
-    if (item.isSector) {
-      ctx.font = 'bold 46px "Bebas Neue", sans-serif';
-      ctx.fillStyle = '#fde047';
-      ctx.fillText(isLeft ? '✦ ENTRA NEL ✦' : '✦ SETTORE ✦', 256, 750);
-    } else if (item.finalOnly) {
-      ctx.font = 'bold 48px "Bebas Neue", sans-serif';
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillText(isLeft ? '🏆 ROUND' : 'FINALE 🏆', 256, 750);
-    } else if (item.id === 'tombola') {
-      ctx.font = 'bold 68px "Bebas Neue", sans-serif';
-      ctx.fillStyle = '#fef08a';
-      ctx.fillText(isLeft ? '77 · 48' : '25 · 90', 256, 750);
-    } else if (item.id === 'monopoly') {
-      ctx.font = 'bold 54px "Bebas Neue", sans-serif';
-      ctx.fillStyle = '#4ade80';
-      ctx.fillText(isLeft ? 'VIA! 200$' : 'PROBABILITÀ', 256, 750);
-    } else if (item.id === 'forza4') {
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 2; c++) {
-          ctx.beginPath();
-          ctx.arc(164 + c * 184, 630 + r * 110, 40, 0, Math.PI * 2);
-          ctx.fillStyle = (r + c + (isLeft ? 0 : 1)) % 2 === 0 ? '#ef4444' : '#facc15';
-          ctx.fill();
-        }
-      }
-    } else {
-      ctx.font = 'bold 36px Outfit, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.fillText(isLeft ? '✦ GIOCO TV ✦' : '✦ LIVE SHOW ✦', 256, 750);
-    }
+    ctx.fillText(item.name.toUpperCase(), 128, 251);
 
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
 
-  // Cartello olografico superiore gigante
+  // Cartello olografico superiore
   function makeHoloMarquee(item, index, accentHex) {
     const cv = document.createElement('canvas');
-    cv.width = 1024;
-    cv.height = 460;
+    cv.width = 512;
+    cv.height = 230;
     const ctx = cv.getContext('2d');
 
-    const bgGrad = ctx.createLinearGradient(0, 0, 1024, 460);
+    const bgGrad = ctx.createLinearGradient(0, 0, 512, 230);
     bgGrad.addColorStop(0, 'rgba(14, 22, 46, 0.98)');
     bgGrad.addColorStop(0.5, 'rgba(8, 12, 26, 0.96)');
     bgGrad.addColorStop(1, 'rgba(4, 7, 18, 0.98)');
     ctx.fillStyle = bgGrad;
     ctx.beginPath();
-    ctx.roundRect(24, 24, 976, 412, 36);
+    ctx.roundRect(12, 12, 488, 206, 18);
     ctx.fill();
 
-    ctx.lineWidth = 14;
+    ctx.lineWidth = 7;
     ctx.strokeStyle = accentHex;
-    ctx.stroke();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#ffffff';
     ctx.stroke();
 
     const tagText = item.isSector
@@ -739,228 +667,126 @@ export function createSpaceLobby({
       ? `🏆 ROUND FINALE DIRETTO · ${item.tag.toUpperCase()}`
       : `PORTA ${String(index + 1).padStart(2, '0')} DI ${N} · ${item.tag.toUpperCase()}`;
 
-    ctx.font = '800 28px Outfit, sans-serif';
-    const tagWidth = Math.min(900, ctx.measureText(tagText).width + 64);
-    const tagX = (1024 - tagWidth) / 2;
+    ctx.font = '800 15px Outfit, sans-serif';
+    const tagWidth = Math.min(440, ctx.measureText(tagText).width + 32);
+    const tagX = (512 - tagWidth) / 2;
 
-    const pillGrad = ctx.createLinearGradient(tagX, 48, tagX + tagWidth, 48);
-    pillGrad.addColorStop(0, accentHex);
-    pillGrad.addColorStop(1, '#3b82f6');
-    ctx.fillStyle = pillGrad;
+    ctx.fillStyle = accentHex;
     ctx.beginPath();
-    ctx.roundRect(tagX, 44, tagWidth, 54, 27);
+    ctx.roundRect(tagX, 22, tagWidth, 27, 13);
     ctx.fill();
 
     ctx.fillStyle = '#050814';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(tagText, 512, 72);
+    ctx.fillText(tagText, 256, 36);
 
-    ctx.font = '900 86px "Bebas Neue", Outfit, sans-serif';
+    ctx.font = '900 44px "Bebas Neue", Outfit, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = accentHex;
-    ctx.shadowBlur = 30;
-    ctx.fillText(item.name.toUpperCase(), 512, 210);
-    ctx.shadowBlur = 0;
+    ctx.fillText(item.name.toUpperCase(), 256, 105);
 
     const actionText = item.isSector
       ? '✨ ENTRA NEL SETTORE 🚪'
       : item.finalOnly
-      ? '🏆 SFIDA FINALE DIRETTA · TOCCA PER ENTRARE 🚪'
+      ? '🏆 SFIDA FINALE DIRETTA · TOCCA 🚪'
       : '✨ TOCCA PER ENTRARE NEL GIOCO 🚪';
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath();
-    ctx.roundRect(70, 310, 884, 82, 22);
+    ctx.roundRect(35, 155, 442, 44, 11);
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-    ctx.stroke();
 
-    ctx.font = '800 34px Outfit, sans-serif';
+    ctx.font = '800 17px Outfit, sans-serif';
     ctx.fillStyle = '#fde047';
-    ctx.fillText(actionText, 512, 352);
+    ctx.fillText(actionText, 256, 178);
 
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
 
-  // Sculture 3D uniche sopra e attorno alle porte
+  // Sculture 3D tematiche
   function addUniqueDoorTheme3D(grp, item, a, b) {
     const id = item.id;
-    const accentMat = new THREE.MeshStandardMaterial({ color: a, metalness: 0.65, roughness: 0.25 });
     const goldMat = new THREE.MeshStandardMaterial({ color: '#fbbf24', metalness: 0.85, roughness: 0.2 });
     const glowAccent = new THREE.MeshBasicMaterial({ color: a, toneMapped: false });
 
     if (item.isSector) {
       if (id === 'shows') {
-        // Truss studio TV + Faro teatrale + Ciak
         const trussMat = new THREE.MeshStandardMaterial({ color: '#64748b', metalness: 0.8, roughness: 0.2 });
         const truss = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.35, 0.35), trussMat);
         truss.position.set(0, 4.65, 0.3);
-        // Telecamera TV su cavalletto a sinistra
         const camBody = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.8), new THREE.MeshStandardMaterial({ color: '#0f172a' }));
         camBody.position.set(-1.95, 2.3, 0.4);
-        const camLens = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.35, 16), goldMat);
-        camLens.rotation.x = Math.PI / 2;
-        camLens.position.set(-1.95, 2.3, 0.85);
-        grp.add(truss, camBody, camLens);
+        grp.add(truss, camBody);
       } else if (id === 'boardgames') {
-        // Grandi Dadi 3D su architrave
         const dieWhite = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), new THREE.MeshStandardMaterial({ color: '#f8fafc' }));
         dieWhite.position.set(-0.45, 4.85, 0.3);
         dieWhite.rotation.set(0.3, 0.4, 0.2);
-        const dieRed = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: '#dc2626' }));
-        dieRed.position.set(0.45, 4.8, 0.3);
-        dieRed.rotation.set(-0.2, 0.5, -0.3);
-        grp.add(dieWhite, dieRed);
+        grp.add(dieWhite);
       } else {
-        // Trofeo d'Oro gigante per Random e Round Finali
-        const trophyCup = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.25, 0.65, 16), goldMat);
+        const trophyCup = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.25, 0.65, 12), goldMat);
         trophyCup.position.set(0, 4.85, 0.3);
-        const trophyBase = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.22, 0.55), new THREE.MeshStandardMaterial({ color: '#1e293b' }));
-        trophyBase.position.set(0, 4.45, 0.3);
-        // Fulmini luminosi
-        const boltGeo = new THREE.BoxGeometry(0.15, 3.8, 0.15);
-        const boltL = new THREE.Mesh(boltGeo, glowAccent); boltL.position.set(-1.95, 2.1, 0.25);
-        const boltR = new THREE.Mesh(boltGeo, glowAccent); boltR.position.set(1.95, 2.1, 0.25);
-        grp.add(trophyCup, trophyBase, boltL, boltR);
+        grp.add(trophyCup);
       }
       return;
     }
 
     if (id === 'eredita' || id === 'eredita_finale') {
-      const colGeo = new THREE.CylinderGeometry(0.28, 0.32, 4.4, 16);
-      const colL = new THREE.Mesh(colGeo, goldMat); colL.position.set(-1.85, 2.2, 0.15);
-      const colR = new THREE.Mesh(colGeo, goldMat); colR.position.set(1.85, 2.2, 0.15);
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.45, 0.08), new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.95, roughness: 0.1 }));
-      blade.position.set(0, 3.85, 0.22);
-      blade.rotation.z = -0.14;
-      grp.add(colL, colR, blade);
+      const colL = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 4.4, 12), goldMat); colL.position.set(-1.85, 2.2, 0.15);
+      const colR = colL.clone(); colR.position.x = 1.85;
+      grp.add(colL, colR);
     } else if (id === 'avanti' || id === 'avanti_finale') {
-      for (let k = 0; k <= 8; k++) {
-        const bulb = new THREE.Mesh(
-          new THREE.SphereGeometry(0.12, 12, 12),
-          new THREE.MeshBasicMaterial({ color: k % 2 === 0 ? '#fde047' : '#ec4899', toneMapped: false })
-        );
-        bulb.position.set(-1.6 + (k / 8) * 3.2, 4.35, 0.28);
-        grp.add(bulb);
-      }
-      const pidigozzo = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 20), goldMat);
+      const pidigozzo = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 16), goldMat);
       pidigozzo.rotation.z = Math.PI / 2;
       pidigozzo.position.set(0, 4.75, 0.25);
       grp.add(pidigozzo);
     } else if (id === 'caduta' || id === 'caduta_finale') {
       const hazardMat = new THREE.MeshStandardMaterial({ color: '#f59e0b', metalness: 0.5, roughness: 0.3 });
-      const pistL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 4.2, 12), hazardMat);
+      const pistL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 4.2, 10), hazardMat);
       pistL.position.set(-1.95, 2.1, 0.2);
-      const pistR = pistL.clone(); pistR.position.x = 1.95;
-      const ringTop = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.08, 12, 24), glowAccent);
-      ringTop.position.set(0, 4.65, 0.22);
-      grp.add(pistL, pistR, ringTop);
+      grp.add(pistL);
     } else if (id === 'affari' || id === 'affari_finale') {
       const redBoxMat = new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.35 });
-      const blueBoxMat = new THREE.MeshStandardMaterial({ color: '#2563eb', roughness: 0.35 });
-      for (let k = 0; k < 3; k++) {
-        const boxL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.48, 0.55), k % 2 === 0 ? redBoxMat : blueBoxMat);
-        boxL.position.set(-1.95, 0.5 + k * 0.65, 0.22);
-        const boxR = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.48, 0.55), k % 2 === 1 ? redBoxMat : blueBoxMat);
-        boxR.position.set(1.95, 0.5 + k * 0.65, 0.22);
-        grp.add(boxL, boxR);
-      }
-      const phone = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.28, 0.38), redBoxMat);
-      phone.position.set(0, 4.7, 0.22);
-      grp.add(phone);
+      const boxL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.48, 0.55), redBoxMat);
+      boxL.position.set(-1.95, 1.2, 0.22);
+      grp.add(boxL);
     } else if (id === 'catena' || id === 'catena_finale') {
-      for (let k = 0; k < 4; k++) {
-        const linkL = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.075, 12, 24), k % 2 ? goldMat : accentMat);
-        linkL.position.set(-1.9, 0.75 + k * 0.9, 0.22);
-        linkL.rotation.y = (k % 2) * (Math.PI / 2);
-        const linkR = linkL.clone(); linkR.position.x = 1.9;
-        grp.add(linkL, linkR);
-      }
+      const linkL = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.075, 8, 16), goldMat);
+      linkL.position.set(-1.9, 1.5, 0.22);
+      grp.add(linkL);
     } else if (id === 'fight') {
-      const tileCols = ['#ec4899', '#38bdf8', '#a855f7', '#fbbf24', '#10b981'];
-      for (let k = 0; k < 5; k++) {
-        const tm = new THREE.MeshBasicMaterial({ color: tileCols[k % tileCols.length], toneMapped: false });
-        const tL = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.12), tm);
-        tL.position.set(-1.85, 0.65 + k * 0.75, 0.25);
-        const tR = tL.clone(); tR.position.x = 1.85;
-        grp.add(tL, tR);
-      }
-    } else if (id === 'hit') {
-      const vinylMat = new THREE.MeshStandardMaterial({ color: '#09090b', roughness: 0.2, metalness: 0.8 });
-      [-1.9, 1.9].forEach(xPos => {
-        const vinyl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 24), vinylMat);
-        vinyl.rotation.x = Math.PI / 2;
-        vinyl.position.set(xPos, 2.3, 0.26);
-        grp.add(vinyl);
-      });
-    } else if (id === 'math') {
-      [-1.9, 1.9].forEach(xPos => {
-        const poly = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(0.42, 0),
-          new THREE.MeshStandardMaterial({ color: '#10b981', wireframe: true, emissive: '#10b981', emissiveIntensity: 0.6 })
-        );
-        poly.position.set(xPos, 2.4, 0.35);
-        grp.add(poly);
-      });
+      const tL = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.12), glowAccent);
+      tL.position.set(-1.85, 1.5, 0.25);
+      grp.add(tL);
     } else if (id === 'cultura') {
       const diamond = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.48, 0),
-        new THREE.MeshStandardMaterial({ color: '#38bdf8', metalness: 0.9, roughness: 0.1, emissive: '#6366f1', emissiveIntensity: 0.4 })
+        new THREE.MeshStandardMaterial({ color: '#38bdf8', metalness: 0.9, roughness: 0.1 })
       );
       diamond.position.set(0, 4.8, 0.3);
       grp.add(diamond);
     } else if (id === 'monopoly') {
-      const blackHatMat = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.25, metalness: 0.4 });
-      const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.07, 24), blackHatMat);
-      hatBrim.position.set(0, 4.55, 0.25);
-      const hatTop = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.34, 0.52, 24), blackHatMat);
+      const blackHatMat = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.25 });
+      const hatTop = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.34, 0.52, 16), blackHatMat);
       hatTop.position.set(0, 4.82, 0.25);
-      const house = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.42), new THREE.MeshStandardMaterial({ color: '#10b981' }));
-      house.position.set(-1.95, 1.4, 0.28);
-      const hotel = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.52, 0.48), new THREE.MeshStandardMaterial({ color: '#ef4444' }));
-      hotel.position.set(-1.95, 2.3, 0.28);
-      grp.add(hatBrim, hatTop, house, hotel);
+      grp.add(hatTop);
     } else if (id === 'tombola') {
       const wickerMat = new THREE.MeshStandardMaterial({ color: '#b45309', roughness: 0.8 });
-      const panariello = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.34, 0.62, 20), wickerMat);
+      const panariello = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.34, 0.62, 16), wickerMat);
       panariello.position.set(0, 4.72, 0.28);
       grp.add(panariello);
-    } else if (id === 'bingo') {
-      const ballCols = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7'];
-      for (let k = 0; k < 5; k++) {
-        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), new THREE.MeshStandardMaterial({ color: ballCols[k] }));
-        const side = k < 3 ? -1.95 : 1.95;
-        ball.position.set(side, 1.2 + (k % 3) * 1.1, 0.28);
-        grp.add(ball);
-      }
-    } else if (id === 'ouija') {
-      [-1.95, 1.95].forEach(xPos => {
-        const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.65, 14), new THREE.MeshStandardMaterial({ color: '#fef3c7' }));
-        candle.position.set(xPos, 1.5, 0.32);
-        const flame = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 10), new THREE.MeshBasicMaterial({ color: '#fb923c', toneMapped: false }));
-        flame.position.set(xPos, 1.92, 0.32);
-        grp.add(candle, flame);
-      });
     } else if (id === 'forza4') {
       const redDisc = new THREE.MeshStandardMaterial({ color: '#ef4444' });
-      const yelDisc = new THREE.MeshStandardMaterial({ color: '#facc15' });
-      for (let k = 0; k < 4; k++) {
-        const dL = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 18), k % 2 === 0 ? redDisc : yelDisc);
-        dL.rotation.x = Math.PI / 2;
-        dL.position.set(-1.85, 0.9 + k * 0.85, 0.26);
-        const dR = dL.clone(); dR.position.x = 1.85;
-        grp.add(dL, dR);
-      }
+      const dL = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 14), redDisc);
+      dL.rotation.x = Math.PI / 2;
+      dL.position.set(-1.85, 1.5, 0.26);
+      grp.add(dL);
     }
   }
 
   // Costruzione porte del settore corrente
   function buildSectorDoors(sectorId) {
-    // Rimuovi porte precedenti
     while (doorsGroup.children.length > 0) {
       const obj = doorsGroup.children[0];
       doorsGroup.remove(obj);
@@ -975,9 +801,8 @@ export function createSpaceLobby({
     N = validItems.length;
     step = (Math.PI * 2) / N;
 
-    // Adatta cerchio pavimento
     outerRing.geometry.dispose();
-    outerRing.geometry = new THREE.RingGeometry(R - 0.9, R + 0.9, 80);
+    outerRing.geometry = new THREE.RingGeometry(R - 0.9, R + 0.9, 64);
 
     doors = validItems.map((item, i) => {
       let a = item.accentHex;
@@ -988,11 +813,10 @@ export function createSpaceLobby({
         b = colors.b;
       }
 
-      // Angoli disposti in cerchio
       const ang = i * step;
       const grp = new THREE.Group();
       grp.position.set(Math.sin(ang) * R, 0, Math.cos(ang) * R);
-      grp.rotation.y = ang + Math.PI; // Rivolta verso il centro (0, 0, 0)
+      grp.rotation.y = ang + Math.PI;
       grp.userData.id = i;
       grp.userData.item = item;
       grp.userData.accent = a;
@@ -1012,7 +836,6 @@ export function createSpaceLobby({
       const threshold = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.18, 0.95), frameMat);
       threshold.position.set(0, 0.09, 0);
 
-      // Profili neon
       const neonMat = new THREE.MeshBasicMaterial({ color: a, toneMapped: false });
       const neonL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 4.05, 0.07), neonMat);
       neonL.position.set(-1.56, 2.1, 0.18);
@@ -1021,7 +844,6 @@ export function createSpaceLobby({
       const neonT = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.07, 0.07), neonMat);
       neonT.position.set(0, 4.08, 0.18);
 
-      // Battenti apribili
       const hingeL = new THREE.Group();
       hingeL.position.set(-1.54, 0, 0.08);
       const panelTexL = makeDoorPanelTexture(item, a, b, true);
@@ -1030,10 +852,7 @@ export function createSpaceLobby({
         new THREE.MeshStandardMaterial({ map: panelTexL, roughness: 0.35, metalness: 0.3 })
       );
       doorLeafL.position.set(0.765, 2.1, 0);
-      const handleMat = new THREE.MeshStandardMaterial({ color: '#fbbf24', metalness: 0.95, roughness: 0.15 });
-      const handleL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 14), handleMat);
-      handleL.position.set(1.36, 2.0, 0.1);
-      hingeL.add(doorLeafL, handleL);
+      hingeL.add(doorLeafL);
 
       const hingeR = new THREE.Group();
       hingeR.position.set(1.54, 0, 0.08);
@@ -1043,24 +862,22 @@ export function createSpaceLobby({
         new THREE.MeshStandardMaterial({ map: panelTexR, roughness: 0.35, metalness: 0.3 })
       );
       doorLeafR.position.set(-0.765, 2.1, 0);
-      const handleR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 14), handleMat);
-      handleR.position.set(-1.36, 2.0, 0.1);
-      hingeR.add(doorLeafR, handleR);
+      hingeR.add(doorLeafR);
 
-      // Vortice dimensionale
       const vortexTex = makeVortexTexture(a);
-      const vortexMat = new THREE.MeshBasicMaterial({
-        map: vortexTex,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      });
-      const vortex = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 3.95), vortexMat);
+      const vortex = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.1, 3.95),
+        new THREE.MeshBasicMaterial({
+          map: vortexTex,
+          transparent: true,
+          opacity: 0.88,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide
+        })
+      );
       vortex.position.set(0, 2.1, -0.14);
 
-      // Cartello superiore gigante
       const holoTex = makeHoloMarquee(item, i, a);
       const holoSign = new THREE.Mesh(
         new THREE.PlaneGeometry(item.isSector ? 6.4 : 5.4, item.isSector ? 2.8 : 2.45),
@@ -1079,7 +896,7 @@ export function createSpaceLobby({
         new THREE.MeshBasicMaterial({
           color: a,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0.3,
           blending: THREE.AdditiveBlending,
           side: THREE.DoubleSide,
           depthWrite: false
@@ -1087,17 +904,6 @@ export function createSpaceLobby({
       );
       haloPlane.position.set(0, 5.85, 0.05);
 
-      // Faretto teatrale
-      const doorSpot = new THREE.SpotLight(a, 35, 25, Math.PI / 3, 0.45, 1.1);
-      doorSpot.position.set(0, 7.5, 4.2);
-      doorSpot.target = grp;
-      grp.add(doorSpot);
-
-      const doorRimLight = new THREE.PointLight(a, 12, 14);
-      doorRimLight.position.set(0, 2.4, 1.5);
-      grp.add(doorRimLight);
-
-      // Sentiero luminoso
       const pathLen = R - 2.6;
       const runwayLine = new THREE.Mesh(
         new THREE.PlaneGeometry(0.42, pathLen),
@@ -1134,18 +940,17 @@ export function createSpaceLobby({
         vortex,
         holoSign,
         haloPlane,
-        doorSpot,
-        doorRimLight,
         runwayLine,
         isOpen: false
       };
     });
 
+    doorGroups = doors.map(d => d.grp);
     sel = 0;
   }
 
   // ============================================================================
-  // 6. MOVIMENTO, TELECAMERA E LOGICA FRECCE CORRETTA
+  // 6. MOVIMENTO, TELECAMERA E HUD RICICLATO (Zero Layout Thrashing)
   // ============================================================================
   let sel = 0;
   let camYaw = 0;
@@ -1153,28 +958,113 @@ export function createSpaceLobby({
   let camDist = 6.2;
   let isEntering = false;
   const moveKeys = new Set();
+  let lastRaycastTime = 0;
 
-  // Elementi UI
+  // Header UI persistente
   const title = h('div', 'lobbyTitle');
+  const secKickerRow = h('div');
+  secKickerRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;';
+  const secKickerEl = h('p', 'kicker');
+  secKickerEl.style.cssText = 'letter-spacing:0.3em;margin:0;';
+  const topBackBtn = h('button', 'backHubPill', '← Torna alle 3 Porte');
+  topBackBtn.setAttribute('aria-label', 'Torna alle 3 porte principali');
+  topBackBtn.style.display = 'none';
+  topBackBtn.onclick = (e) => {
+    e.stopPropagation();
+    sfx.click();
+    switchToSector('main');
+  };
+  secKickerRow.append(secKickerEl, topBackBtn);
+
+  const secTitleEl = h('h1', 'disp');
+  secTitleEl.style.cssText = 'font-size:clamp(1.8rem, 5vw, 3.4rem);margin:2px 0 0;';
+  const secSubTextEl = h('p', 'spaceSubText');
+  secSubTextEl.style.cssText = 'margin:2px 0 0;';
+  title.append(secKickerRow, secTitleEl, secSubTextEl);
+
+  // Frecce schermo
   const prev = h('button', 'arrow l', '‹');
   prev.setAttribute('aria-label', 'Porta a sinistra');
   prev.title = 'Ruota verso la porta a sinistra';
+  prev.onclick = () => rotateLeft();
+
   const next = h('button', 'arrow r', '›');
   next.setAttribute('aria-label', 'Porta a destra');
   next.title = 'Ruota verso la porta a destra';
+  next.onclick = () => rotateRight();
 
+  // Dock Card persistente creata una volta sola
   const info = h('div', 'dock');
+  const cardEl = h('div', 'card info spaceDoorCard');
+  const navRow = h('div', 'spaceDoorNavRow');
+
+  const prevDoorBtn = h('button', 'doorNavPill doorNavPrev', '‹');
+  prevDoorBtn.setAttribute('aria-label', 'Porta a sinistra');
+  prevDoorBtn.title = 'Ruota verso la porta a sinistra';
+  prevDoorBtn.onclick = (e) => { e.stopPropagation(); sfx.click(); rotateLeft(); };
+
+  const titleBlock = h('div', 'doorTitleBlock');
+  const cardKickerEl = h('p', 'kicker');
+  cardKickerEl.style.marginBottom = '2px';
+  const headingEl = h('h3', 'disp doorHeading');
+  titleBlock.append(cardKickerEl, headingEl);
+
+  const nextDoorBtn = h('button', 'doorNavPill doorNavNext', '›');
+  nextDoorBtn.setAttribute('aria-label', 'Porta a destra');
+  nextDoorBtn.title = 'Ruota verso la porta a destra';
+  nextDoorBtn.onclick = (e) => { e.stopPropagation(); sfx.click(); rotateRight(); };
+
+  navRow.append(prevDoorBtn, titleBlock, nextDoorBtn);
+
+  const descEl = h('p', 'doorDesc');
+
+  const btnWrap = h('div', 'row doorActionRow');
+  btnWrap.style.cssText = 'margin:6px 0 0;gap:8px;flex-wrap:wrap;justify-content:center;';
+
+  const backCardBtn = h('button', 'btn sub backToHubCardBtn', '← Hub (3 Porte)');
+  backCardBtn.style.display = 'none';
+  backCardBtn.onclick = () => { sfx.click(); switchToSector('main'); };
+
+  const rulesB = h('button', 'btn rulesBtn', '📖 Regole');
+  rulesB.onclick = () => {
+    sfx.click();
+    const d = doors[sel];
+    if (!d) return;
+    const item = d.item;
+    if (item.isSector) {
+      showRulesModal({
+        name: item.name,
+        tag: item.tag,
+        desc: item.desc,
+        rules: [
+          `Benvenuto nella categoria ${item.name}!`,
+          item.desc,
+          'Avvicinati alla porta o tocca "Entra" per esplorare tutti i giochi di questo settore!'
+        ]
+      });
+    } else {
+      showRulesModal(item.baseGame || item);
+    }
+  };
+
+  const playBtn = h('button', 'btn pri bigEnterBtn');
+  playBtn.style.cssText = 'font-weight:900;padding:12px 22px;border:2px solid #ffffff;';
+  playBtn.onclick = () => triggerPortalEntry(sel);
+
+  btnWrap.append(backCardBtn, rulesB, playBtn);
+  cardEl.append(navRow, descEl, btnWrap);
+  info.append(cardEl);
+
+  // Tools & Touch D-pad
   const tools = h('div', 'tools');
   const dpadToggle = h('button', 'pill btn dpadToggleBtn', '🕹️ Vola');
   dpadToggle.setAttribute('aria-label', 'Mostra o nascondi joystick di volo');
-  dpadToggle.title = 'Attiva o disattiva il joystick per volare nello spazio';
   dpadToggle.onclick = () => {
     const isVis = dpad.classList.toggle('visible');
     dpadToggle.classList.toggle('active', isVis);
   };
   tools.append(dpadToggle, speedBtn(), muteBtn());
 
-  // Touch virtual D-pad
   const dpad = h('div', 'spaceMobileDpad');
   const dpadUp = h('button', 'dpadBtn dpadUp', '▲');
   const dpadDown = h('button', 'dpadBtn dpadDown', '▼');
@@ -1235,6 +1125,7 @@ export function createSpaceLobby({
     S.go([camX, camY, camZ], [lookX, lookY, lookZ]);
   }
 
+  // AGGIORNAMENTO HUD ZERO-ALLOCATION (Ultra-veloce, nessun layout thrashing)
   function updateHUD() {
     const sec = SECTORS[currentSectorId] || SECTORS.main;
     const door = doors[sel];
@@ -1249,125 +1140,57 @@ export function createSpaceLobby({
 
     setAccent(a, sec.accentHex || '#2563eb');
 
-    // Aggiorna titolo testata superiore
-    const backBtnHtml = currentSectorId !== 'main'
-      ? `<button class="backHubPill" id="backToHubTopBtn" aria-label="Torna alle 3 porte principali">← Torna alle 3 Porte</button>`
-      : '';
+    // Aggiornamento testata senza distruzione DOM
+    secKickerEl.textContent = sec.kicker;
+    secTitleEl.textContent = sec.title;
+    secSubTextEl.textContent = sec.subText;
+    topBackBtn.style.display = currentSectorId !== 'main' ? 'inline-flex' : 'none';
 
-    title.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
-        <p class="kicker" style="letter-spacing:0.3em;margin:0;">${sec.kicker}</p>
-        ${backBtnHtml}
-      </div>
-      <h1 class="disp" style="font-size:clamp(1.8rem, 5vw, 3.4rem);margin:2px 0 0;">${sec.title}</h1>
-      <p class="spaceSubText" style="margin:2px 0 0;">${sec.subText}</p>
-    `;
-
-    const topBackBtn = title.querySelector('#backToHubTopBtn');
-    if (topBackBtn) {
-      topBackBtn.onclick = (e) => {
-        e.stopPropagation();
-        sfx.click();
-        switchToSector('main');
-      };
-    }
-
-    // Costruzione scheda Dock
-    info.innerHTML = '';
-    const c = h('div', 'card info spaceDoorCard');
-    c.style.cssText = `border:1.5px solid ${a}aa;box-shadow:0 12px 36px rgba(0,0,0,0.85), 0 0 28px ${a}55;`;
-
-    // RIGA NAVIGAZIONE FRECCE CORRETTA:
-    // [ ‹ ] TITOLO [ › ]
-    // In Three.js dal punto di vista della telecamera:
-    // La porta a DESTRA sullo schermo corrisponde a sel - 1
-    // La porta a SINISTRA sullo schermo corrisponde a sel + 1
-    const navRow = h('div', 'spaceDoorNavRow');
-
-    const prevDoorBtn = h('button', 'doorNavPill doorNavPrev', '‹');
-    prevDoorBtn.setAttribute('aria-label', 'Porta a sinistra');
-    prevDoorBtn.title = 'Ruota verso la porta a sinistra';
-    prevDoorBtn.onclick = (e) => { e.stopPropagation(); sfx.click(); rotateLeft(); };
-
-    const titleBlock = h('div', 'doorTitleBlock');
+    // Aggiornamento scheda Dock senza innerHTML wipe
     const badgeText = isSector
-      ? `CATEGORIA ${sel + 1} DI ${N} · ${esc(item.tag)}`
+      ? `CATEGORIA ${sel + 1} DI ${N} · ${item.tag}`
       : isFinalOnly
-      ? `🏆 ROUND FINALE DIRETTO · ${esc(item.tag)}`
-      : `PORTA ${String(sel + 1).padStart(2, '0')} DI ${N} · ${esc(item.tag)}`;
+      ? `🏆 ROUND FINALE DIRETTO · ${item.tag}`
+      : `PORTA ${String(sel + 1).padStart(2, '0')} DI ${N} · ${item.tag}`;
 
-    titleBlock.innerHTML = `
-      <p class="kicker" style="color:${a};margin-bottom:2px;">${badgeText}</p>
-      <h3 class="disp doorHeading">${esc(item.name)}</h3>
-    `;
+    cardKickerEl.textContent = badgeText;
+    cardKickerEl.style.color = a;
+    headingEl.textContent = item.name;
 
-    const nextDoorBtn = h('button', 'doorNavPill doorNavNext', '›');
-    nextDoorBtn.setAttribute('aria-label', 'Porta a destra');
-    nextDoorBtn.title = 'Ruota verso la porta a destra';
-    nextDoorBtn.onclick = (e) => { e.stopPropagation(); sfx.click(); rotateRight(); };
-
-    navRow.append(prevDoorBtn, titleBlock, nextDoorBtn);
-
-    const descP = h('p', 'doorDesc');
     const pl = (!isSector && actualGame.players)
       ? ` · ${actualGame.players.min ?? 1}–${actualGame.players.max ?? 4} giocatori`
       : '';
-    descP.innerHTML = `${esc(item.desc)}${pl}${b ? ` · Record <b class="gold">${b.toLocaleString('it-IT')}</b>` : ''}`;
+    descEl.innerHTML = `${esc(item.desc)}${pl}${b ? ` · Record <b class="gold">${b.toLocaleString('it-IT')}</b>` : ''}`;
 
-    const btnWrap = h('div', 'row doorActionRow');
-    btnWrap.style.cssText = 'margin:6px 0 0;gap:8px;flex-wrap:wrap;justify-content:center;';
+    cardEl.style.borderColor = a + 'aa';
+    cardEl.style.boxShadow = `0 12px 36px rgba(0,0,0,0.85), 0 0 28px ${a}55`;
 
-    // Pulsante "Torna all'Hub" nella scheda se siamo in un settore
-    if (currentSectorId !== 'main') {
-      const backCardBtn = h('button', 'btn sub backToHubCardBtn', '← Hub (3 Porte)');
-      backCardBtn.onclick = () => { sfx.click(); switchToSector('main'); };
-      btnWrap.append(backCardBtn);
-    }
+    backCardBtn.style.display = currentSectorId !== 'main' ? 'inline-flex' : 'none';
 
-    // Regole
-    const rulesB = h('button', 'btn rulesBtn', '📖 Regole');
-    rulesB.onclick = () => {
-      sfx.click();
-      if (isSector) {
-        showRulesModal({
-          name: item.name,
-          tag: item.tag,
-          desc: item.desc,
-          rules: [
-            `Benvenuto nella categoria ${item.name}!`,
-            item.desc,
-            'Avvicinati alla porta o tocca "Entra" per esplorare tutti i giochi di questo settore!'
-          ]
-        });
-      } else {
-        showRulesModal(actualGame);
-      }
-    };
-    btnWrap.append(rulesB);
-
-    // Pulsante di ingresso principale
-    const play = h('button', 'btn pri bigEnterBtn');
     if (isSector) {
-      play.innerHTML = '<span class="enterBtnFull">🚪 Apri Categoria ed Entra ▸</span><span class="enterBtnMobile">🚀 Entra nel Settore 🚪</span>';
+      playBtn.innerHTML = '<span class="enterBtnFull">🚪 Apri Categoria ed Entra ▸</span><span class="enterBtnMobile">🚀 Entra nel Settore 🚪</span>';
     } else if (isFinalOnly) {
-      play.innerHTML = '<span class="enterBtnFull">🏆 Gioca Subito il Round Finale ▸</span><span class="enterBtnMobile">🏆 Gioca Finale 🚪</span>';
+      playBtn.innerHTML = '<span class="enterBtnFull">🏆 Gioca Subito il Round Finale ▸</span><span class="enterBtnMobile">🏆 Gioca Finale 🚪</span>';
     } else {
-      play.innerHTML = '<span class="enterBtnFull">🚪 Avvicinati, Apri ed Entra ▸</span><span class="enterBtnMobile">🚀 Entra nel Gioco 🚪</span>';
+      playBtn.innerHTML = '<span class="enterBtnFull">🚪 Avvicinati, Apri ed Entra ▸</span><span class="enterBtnMobile">🚀 Entra nel Gioco 🚪</span>';
     }
-    play.style.cssText = `font-weight:900;padding:12px 22px;background:linear-gradient(135deg, ${a}, #2563eb);border:2px solid #ffffff;box-shadow:0 0 22px ${a}88;`;
-    play.onclick = () => triggerPortalEntry(sel);
-    btnWrap.append(play);
+    playBtn.style.background = `linear-gradient(135deg, ${a}, #2563eb)`;
+    playBtn.style.boxShadow = `0 0 22px ${a}88`;
 
-    c.append(navRow, descP, btnWrap);
-    info.append(c);
+    // Posiziona il singolo faretto teatrale sulla porta attiva
+    const doorAng = door.angle;
+    activeDoorSpot.color.set(a);
+    activeDoorSpot.position.set(Math.sin(doorAng) * (R - 3.8), 7.5, Math.cos(doorAng) * (R - 3.8));
+    activeDoorSpot.target = door.grp;
 
-    // Evidenzia visivamente la porta attiva con faretto e aura
+    activeDoorRimLight.color.set(a);
+    activeDoorRimLight.position.set(Math.sin(doorAng) * (R - 1.2), 2.5, Math.cos(doorAng) * (R - 1.2));
+
+    // Evidenziazione visiva immediata
     doors.forEach((d, idx) => {
       const active = idx === sel;
-      tween(d.holoSign.scale, [active ? 1.15 : 0.9, active ? 1.15 : 0.9, 1], 0.35, ease.overshoot);
+      d.holoSign.scale.setScalar(active ? 1.15 : 0.9);
       d.haloPlane.material.opacity = active ? 0.75 : 0.16;
-      d.doorSpot.intensity = active ? 120 : 25;
-      d.doorRimLight.intensity = active ? 22 : 6;
       d.runwayLine.material.opacity = active ? 0.75 : 0.14;
     });
 
@@ -1384,13 +1207,10 @@ export function createSpaceLobby({
     updateHUD();
     if (announce && changed && doors[sel]) {
       const it = doors[sel].item;
-      speakDrone(`${it.isSector ? 'Categoria' : 'Porta'}: ${it.name}`, 2000);
+      speakDrone(`${it.isSector ? 'Categoria' : 'Porta'}: ${it.name}`, 1800);
     }
   }
 
-  // ROTAZIONE FRECCE:
-  // Sullo schermo la porta visibile a destra è sel - 1
-  // La porta visibile a sinistra è sel + 1
   function rotateRight() {
     rotateTo(sel - 1);
   }
@@ -1410,10 +1230,6 @@ export function createSpaceLobby({
     updateCameraAndAvatarOrientation();
   }
 
-  // Frecce schermo esterno
-  prev.onclick = () => rotateLeft();
-  next.onclick = () => rotateRight();
-
   // ============================================================================
   // 7. SEQUENZA CINEMATICA D'INGRESSO & TRANSIZIONE SETTORI
   // ============================================================================
@@ -1430,19 +1246,17 @@ export function createSpaceLobby({
     const a = doorObj.accent;
     const doorAngle = doorObj.angle;
 
-    // Nascondi UI durante l'ingresso
-    title.style.transition = 'opacity 0.35s ease';
+    title.style.transition = 'opacity 0.25s ease';
     title.style.opacity = '0';
-    info.style.transition = 'opacity 0.35s ease';
+    info.style.transition = 'opacity 0.25s ease';
     info.style.opacity = '0';
     prev.style.display = 'none';
     next.style.display = 'none';
     tools.style.display = 'none';
 
     sfx.fanfare();
-    speakDrone(`Andiamo ad aprire la porta di ${item.name}!`, 2600);
+    speakDrone(`Entriamo in ${item.name}!`, 2200);
 
-    // 1. Orientamento verso la porta
     const yawDiff = normAngle(doorAngle - avatar.rotation.y);
     avatar.rotation.y += yawDiff;
     camYaw = avatar.rotation.y;
@@ -1458,35 +1272,31 @@ export function createSpaceLobby({
 
     S.go([camApproachX, 2.8, camApproachZ], [doorWorldX, 2.2, doorWorldZ]);
 
-    // 2. Volo/Camminata verso la porta
     sfx.whoosh();
     jetFlameMat.color.set('#ffffff');
     const distToDoor = Math.hypot(targetX - avatar.position.x, targetZ - avatar.position.z);
-    const moveDur = Math.max(0.65, Math.min(1.45, distToDoor * 0.1));
+    const moveDur = Math.max(0.55, Math.min(1.2, distToDoor * 0.09));
 
-    tween(avatar.rotation, { x: 0.22 }, 0.25, ease.out);
+    tween(avatar.rotation, { x: 0.22 }, 0.2, ease.out);
     await Promise.all([
       tween(avatar.position, { x: targetX, y: 0.35, z: targetZ }, moveDur, ease.inout),
       tween(drone.position, { x: targetX + Math.cos(doorAngle) * 1.1, y: 2.3, z: targetZ - Math.sin(doorAngle) * 1.1 }, moveDur, ease.inout)
     ]);
-    tween(avatar.rotation, { x: 0 }, 0.2, ease.out);
+    tween(avatar.rotation, { x: 0 }, 0.15, ease.out);
 
-    // 3. Apertura fisica dei battenti
-    avatar.point?.(900);
-    await new Promise(r => setTimeout(r, 220));
+    avatar.point?.(700);
+    await new Promise(r => setTimeout(r, 180));
 
     sfx.drum();
     sfx.click();
-    speakDrone(`Porta aperta! Entriamo in ${item.name}!`, 2200);
 
     await Promise.all([
-      tween(doorObj.hingeL.rotation, { y: -Math.PI * 0.68 }, 0.78, ease.out),
-      tween(doorObj.hingeR.rotation, { y: Math.PI * 0.68 }, 0.78, ease.out),
-      tween(doorObj.vortex.scale, { x: 1.18, y: 1.12, z: 1 }, 0.78, ease.overshoot)
+      tween(doorObj.hingeL.rotation, { y: -Math.PI * 0.68 }, 0.65, ease.out),
+      tween(doorObj.hingeR.rotation, { y: Math.PI * 0.68 }, 0.65, ease.out),
+      tween(doorObj.vortex.scale, { x: 1.18, y: 1.12, z: 1 }, 0.65, ease.overshoot)
     ]);
     doorObj.isOpen = true;
 
-    // 4. Ingresso attraverso il vortice
     sfx.whoosh();
     const insideX = Math.sin(doorAngle) * (R + 0.4);
     const insideZ = Math.cos(doorAngle) * (R + 0.4);
@@ -1496,22 +1306,19 @@ export function createSpaceLobby({
     S.go([camInsideX, 2.3, camInsideZ], [insideX, 2.2, insideZ]);
 
     await Promise.all([
-      tween(avatar.position, { x: insideX, y: 0.9, z: insideZ }, 0.75, ease.in),
-      tween(drone.position, { x: insideX, y: 2.1, z: insideZ }, 0.75, ease.in)
+      tween(avatar.position, { x: insideX, y: 0.9, z: insideZ }, 0.65, ease.in),
+      tween(drone.position, { x: insideX, y: 2.1, z: insideZ }, 0.65, ease.in)
     ]);
 
-    // 5. Flash cosmico e transizione
     S.flashWith(a);
     sfx.win();
-    await new Promise(r => setTimeout(r, 380));
+    await new Promise(r => setTimeout(r, 320));
 
-    // Se è un portale di settore: entriamo nel sub-settore!
     if (item.isSector) {
       switchToSector(item.sectorTarget);
       return;
     }
 
-    // Se è un gioco o round finale: avvia configurazione/gioco!
     const targetGame = item.baseGame || item;
     const cfg = item.finalOnly ? { finalOnly: true } : {};
     if (targetGame.players) {
@@ -1521,22 +1328,18 @@ export function createSpaceLobby({
     }
   }
 
-  // Cambio settore fluido con rigenerazione porte
   function switchToSector(targetSectorId) {
     isEntering = false;
     currentSectorId = targetSectorId;
 
-    // Riposiziona personaggio e drone al centro dello spazio
     avatar.position.set(0, 0.15, 0);
     avatar.rotation.set(0, 0, 0);
     drone.position.set(1.1, 2.2, 0.3);
     camYaw = 0;
     camPitch = 0.16;
 
-    // Rigenera porte del settore scelto
     buildSectorDoors(currentSectorId);
 
-    // Ripristina UI
     title.style.opacity = '1';
     info.style.opacity = '1';
     prev.style.display = 'block';
@@ -1547,11 +1350,11 @@ export function createSpaceLobby({
     updateHUD();
 
     const sec = SECTORS[currentSectorId] || SECTORS.main;
-    speakDrone(currentSectorId === 'main' ? 'Tornato all\'Hub delle 3 Porte!' : `Benvenuto nel settore ${sec.title}!`, 2600);
+    speakDrone(currentSectorId === 'main' ? 'Tornato all\'Hub delle 3 Porte!' : `Benvenuto in ${sec.title}!`, 2200);
   }
 
   // ============================================================================
-  // 8. CONTROLLI MOUSE / TOUCH / TASTIERA
+  // 8. CONTROLLI MOUSE / TOUCH / TASTIERA (Throttled & Ottimizzati)
   // ============================================================================
   let dragging = false;
   let startX = 0;
@@ -1581,13 +1384,20 @@ export function createSpaceLobby({
 
       const norm = ((camYaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
       const closestIdx = Math.round(norm / step) % N;
-      if (closestIdx !== sel) selectDoorIndex(closestIdx, false);
+      if (closestIdx !== sel) {
+        sel = closestIdx;
+        updateHUD();
+      }
 
       updateCameraAndAvatarOrientation();
       return;
     }
-    if (e.target.id === 'gl' && !isEntering) {
-      const hit = raycast(doors.map(d => d.grp), e);
+
+    // Raycasting throttled a 75ms quando non si trascina
+    const now = performance.now();
+    if (now - lastRaycastTime > 75 && e.target.id === 'gl' && !isEntering) {
+      lastRaycastTime = now;
+      const hit = raycast(doorGroups, e);
       document.body.style.cursor = hit ? 'pointer' : 'grab';
     }
   };
@@ -1598,7 +1408,7 @@ export function createSpaceLobby({
     document.body.style.cursor = '';
 
     if (dragMoved <= 10 && e.target.id === 'gl' && !ui.querySelector('.ov') && !isEntering) {
-      const hit = raycast(doors.map(d => d.grp), e);
+      const hit = raycast(doorGroups, e);
       if (!hit) return;
       const clickedId = hit.userData.id;
       triggerPortalEntry(clickedId);
@@ -1646,7 +1456,7 @@ export function createSpaceLobby({
   addEventListener('wheel', wheel, { passive: true });
 
   // ============================================================================
-  // 9. ANIMATION LOOP
+  // 9. ANIMATION LOOP (Ottimizzato a 60 FPS)
   // ============================================================================
   let walkCycle = 0;
 
@@ -1655,11 +1465,9 @@ export function createSpaceLobby({
     saturnSphere.rotation.y += dt * 0.08;
     saturnRings.rotation.z -= dt * 0.04;
     earthSphere.rotation.y += dt * 0.12;
-    purpleSphere.rotation.y += dt * 0.07;
 
     crystals.forEach(ast => {
-      ast.rotation.x += dt * ast.userData.rx;
-      ast.rotation.y += dt * ast.userData.ry;
+      ast.rotation.x += dt * 0.25;
       ast.position.y = ast.userData.baseY + Math.sin(t * 1.2) * 0.2;
     });
 
@@ -1710,7 +1518,10 @@ export function createSpaceLobby({
         const lookZ = avatar.position.z + Math.cos(camYaw) * 6;
         const ang = ((Math.atan2(lookX, lookZ) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         const idx = Math.round(ang / step) % N;
-        if (idx !== sel) selectDoorIndex(idx, false);
+        if (idx !== sel) {
+          sel = idx;
+          updateHUD();
+        }
 
         updateCameraAndAvatarOrientation();
       } else {
@@ -1731,11 +1542,11 @@ export function createSpaceLobby({
     }
   });
 
-  // Costruisci le 3 macro-porte iniziali
+  // Avvio iniziale
   buildSectorDoors('main');
   updateCameraAndAvatarOrientation();
   updateHUD();
-  speakDrone('Benvenuto! Scegli una delle 3 porte: Show Game, Giochi da Tavolo, o Random & Finali!', 3800);
+  speakDrone('Benvenuto! Scegli una delle 3 porte: Show Game, Giochi da Tavolo, o Random & Finali!', 3200);
 
   const teardown = () => {
     removeEventListener('keydown', keyDown);

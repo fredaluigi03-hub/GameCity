@@ -101,16 +101,18 @@ export function createHost(ctx, def) {
       cur = fin;
       p.speak(true);
       if (withBox) {
-        box.hidden = false; box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
-        let i = 0; tx.innerHTML = '';
+        box.hidden = false;
+        box.classList.add('in');
+        let i = 0;
+        tx.innerHTML = '';
         typer = setInterval(() => {
-          i += 2;
+          i += 3;
           tx.innerHTML = renderBeepHtml(text.slice(0, i));
           if (i >= text.length) {
             clearInterval(typer);
             tx.innerHTML = renderBeepHtml(text);
           }
-        }, 28);
+        }, 36);
       }
       const canVoice = !sfx.muted && synth;
       if (canVoice) {

@@ -25,14 +25,16 @@ export function tune(col, s = .55, l = [.38, .58]) {
 // ---------- renderer / quality ----------
 const hasBrowser = typeof document !== 'undefined' && typeof window !== 'undefined';
 const canvas = hasBrowser ? document.getElementById('gl') : null;
-const renderer = hasBrowser ? new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'}) : null;
+const isMobileDevice = hasBrowser && (innerWidth <= 768 || 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1));
+const renderer = hasBrowser ? new THREE.WebGLRenderer({canvas, antialias: !isMobileDevice, powerPreference: 'high-performance'}) : null;
 if (renderer) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = .75;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 }
 let low = (() => {
   if (!hasBrowser) return true;
+  if (isMobileDevice) return true;
   const q = new URLSearchParams(location.search).get('q');
   if (q) return q === 'low';
   try {
@@ -43,7 +45,7 @@ let low = (() => {
 })();
 if (renderer) {
   renderer.shadowMap.enabled = !low;
-  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 1.5));
+  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 1.25));
 }
 const composer = hasBrowser ? new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, {type: THREE.HalfFloatType, samples: 0})) : null;
 const pass = hasBrowser ? new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera()) : null;
