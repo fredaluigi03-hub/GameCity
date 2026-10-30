@@ -507,6 +507,13 @@ export default {
         S.go(p.cam, p.look);
       };
 
+      // Tasto Scheda Partita
+      const btnStats = h('button', 'btn', '📊 Scheda Match');
+      btnStats.onclick = () => {
+        sfx.click();
+        ctx.toggleSidePanel?.();
+      };
+
       // Tasto Regole
       const btnRules = h('button', 'btn', '📖 Regole');
       btnRules.onclick = () => {
@@ -514,7 +521,7 @@ export default {
         ctx.showRules();
       };
 
-      dockWrap.append(btnCam, btnRules);
+      dockWrap.append(btnCam, btnStats, btnRules);
       ctx.dock(dockWrap);
     }
 

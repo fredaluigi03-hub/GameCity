@@ -363,27 +363,64 @@ function launch(g, cfg) {
     onExit: f => ctx.exits.push(f),
     hud: html => { right.innerHTML = html; },
     dock: (...n) => dockEl.replaceChildren(...n),
+    sidePanel: null,
+    _sideToggleBtn: null,
+    _sideBackdrop: null,
+    toggleSidePanel(forceState) {
+      if (!ctx.sidePanel) return;
+      const isOpen = typeof forceState === 'boolean'
+        ? forceState
+        : !ctx.sidePanel.classList.contains('open');
+      ctx.sidePanel.classList.toggle('open', isOpen);
+      if (ctx._sideBackdrop) {
+        ctx._sideBackdrop.classList.toggle('open', isOpen);
+      }
+      if (ctx._sideToggleBtn) {
+        ctx._sideToggleBtn.classList.toggle('active', isOpen);
+        ctx._sideToggleBtn.innerHTML = isOpen ? '✕ Chiudi Scheda' : '👥 Scheda Giocatori ▾';
+      }
+      if (isOpen) {
+        try { sfx.click(); } catch {}
+      }
+    },
     sideAdd: n => {
       ui.append(n);
       if (n && n.classList && n.classList.contains('sidePanelLeft')) {
-        const toggleBtn = h('button', 'pill btn sidePanelMobileToggle', '📋 Scheda Tavolo ▾');
-        toggleBtn.setAttribute('aria-label', 'Mostra o nascondi scheda tavolo');
-        toggleBtn.onclick = () => {
-          const isOpen = n.classList.toggle('open');
-          toggleBtn.classList.toggle('active', isOpen);
-          toggleBtn.innerHTML = isOpen ? '✕ Chiudi Scheda' : '📋 Scheda Tavolo ▾';
+        ctx.sidePanel = n;
+
+        // Backdrop overlay for mobile drawer
+        let backdrop = ui.querySelector('.sidePanelBackdrop');
+        if (!backdrop) {
+          backdrop = h('div', 'sidePanelBackdrop');
+          backdrop.onclick = () => ctx.toggleSidePanel(false);
+          ui.append(backdrop);
+          ctx.onExit(() => backdrop.remove());
+        }
+        ctx._sideBackdrop = backdrop;
+
+        const toggleBtn = h('button', 'pill btn sidePanelMobileToggle', '👥 Scheda Giocatori ▾');
+        toggleBtn.setAttribute('aria-label', 'Mostra o nascondi scheda giocatori');
+        ctx._sideToggleBtn = toggleBtn;
+        toggleBtn.onclick = (e) => {
+          e.stopPropagation();
+          ctx.toggleSidePanel();
         };
+        toggleBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+
         const handle = h('div', 'sidePanelMobileHandle');
-        handle.innerHTML = '<span class="handleBar"></span><span class="handleText">Scheda & Dettagli Partita</span><button type="button" class="handleClose">✕ Chiudi</button>';
+        handle.innerHTML = '<span class="handleBar"></span><span class="handleText">👥 Scheda Giocatori & Tavolo</span><button type="button" class="handleClose">✕ Chiudi</button>';
         handle.querySelector('.handleClose').onclick = e => {
           e.stopPropagation();
-          n.classList.remove('open');
-          toggleBtn.classList.remove('active');
-          toggleBtn.innerHTML = '📋 Scheda Tavolo ▾';
+          ctx.toggleSidePanel(false);
         };
         n.prepend(handle);
         ui.append(toggleBtn);
-        ctx.onExit(() => toggleBtn.remove());
+        ctx.onExit(() => {
+          toggleBtn.remove();
+          ctx.sidePanel = null;
+          ctx._sideToggleBtn = null;
+          ctx._sideBackdrop = null;
+        });
       }
     },
     ask: o => askMC(ctx, o),
@@ -411,6 +448,13 @@ function launch(g, cfg) {
       board.replaceChildren(...players.map(p => {
         const c = h('div', 'pchip' + (p === ctx.active ? ' on' : '') + (p.alive ? '' : ' out'));
         c.style.setProperty('--pc', p.color);
+        c.setAttribute('role', 'button');
+        c.setAttribute('tabindex', '0');
+        c.setAttribute('title', 'Tocca per aprire la Scheda Giocatori & Tavolo');
+        c.onclick = (e) => {
+          e.stopPropagation();
+          ctx.toggleSidePanel?.();
+        };
         c.innerHTML = `<span class="dot"></span><span class="nm">${esc(p.name)}${p.bot ? '<small>CPU</small>' : ''}</span><b>${p.score.toLocaleString('it-IT')}</b>`;
         return c;
       }));

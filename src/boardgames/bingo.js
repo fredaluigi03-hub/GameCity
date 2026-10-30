@@ -619,6 +619,14 @@ export default {
       S.go(v.cam, v.look);
     };
 
+    const cardsBtn = h('button', 'btn pill', '🎫 Cartelle Bingo');
+    cardsBtn.style.fontSize = '0.85rem';
+    cardsBtn.style.padding = '8px 14px';
+    cardsBtn.onclick = () => {
+      sfx.click();
+      ctx.toggleSidePanel?.();
+    };
+
     const rulesBtn = h('button', 'btn pill', '📖 Regole');
     rulesBtn.style.fontSize = '0.85rem';
     rulesBtn.style.padding = '8px 14px';
@@ -627,7 +635,7 @@ export default {
       ctx.showRules();
     };
 
-    dockBar.append(drawBtn, autoBtn, camBtn, rulesBtn);
+    dockBar.append(drawBtn, autoBtn, cardsBtn, camBtn, rulesBtn);
     ctx.dock(dockBar);
 
     await host.say(`Ladies and gentlemen, benvenuti al Gran Bingo VIP! Sfera caricata e tabellone master pronto!`, { mood: 'happy' });

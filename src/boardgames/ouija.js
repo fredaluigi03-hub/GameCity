@@ -847,13 +847,19 @@ export default {
         S.go(p.cam, p.look);
       };
 
+      const btnSheet = h('button', 'btn', '📜 Seduta & Enigmi');
+      btnSheet.onclick = () => {
+        sfx.click();
+        ctx.toggleSidePanel?.();
+      };
+
       const btnRules = h('button', 'btn', '📖 Regole');
       btnRules.onclick = () => {
         sfx.click();
         ctx.showRules();
       };
 
-      dockWrap.append(btnSummon, btnEnigma, btnGoodbye, btnCam, btnRules);
+      dockWrap.append(btnSummon, btnEnigma, btnSheet, btnGoodbye, btnCam, btnRules);
       ctx.dock(dockWrap);
     }
 

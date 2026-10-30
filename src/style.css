@@ -45,7 +45,8 @@ html, body {
 
 .enterBtnMobile { display: none; }
 .sidePanelMobileToggle,
-.sidePanelMobileHandle { display: none; }
+.sidePanelMobileHandle,
+.sidePanelBackdrop { display: none; }
 .spaceMobileDpad { display: none; }
 
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
@@ -149,7 +150,13 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   border: 1px solid var(--line-soft);
   font-weight: 600;
   font-size: 0.88rem;
-  transition: transform .35s var(--spring), border-color .3s, box-shadow .3s, opacity .3s;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .2s var(--ease), border-color .3s, box-shadow .3s, opacity .3s;
+}
+.pchip:active {
+  transform: scale(0.96);
 }
 .pchip b { font-variant-numeric: tabular-nums; color: #ffffff; font-weight: 700; }
 .pchip small, .rank small {
@@ -2153,24 +2160,42 @@ form.in .btn { flex: none; padding: 0 22px; }
   }
 
   /* Unified 3D Left Information Sidebar (.sidePanelLeft) -> Collapsible Drawer Sheet */
+  .sidePanelBackdrop {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .sidePanelBackdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .sidePanelMobileToggle {
     display: inline-flex !important;
     position: fixed;
-    top: calc(56px + var(--sat));
+    top: calc(96px + var(--sat));
     left: 10px;
-    z-index: 28;
-    background: rgba(14, 20, 36, 0.94);
+    z-index: 95;
+    background: rgba(14, 20, 36, 0.95);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1.5px solid var(--ac, #38bdf8);
     color: #ffffff;
     font-size: 0.78rem;
     font-weight: 700;
-    padding: 6px 12px;
-    min-height: 34px;
+    padding: 6px 14px;
+    min-height: 36px;
     border-radius: 999px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.65), 0 0 14px rgba(56, 189, 248, 0.35);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.75), 0 0 14px rgba(56, 189, 248, 0.4);
     pointer-events: auto;
+    touch-action: manipulation;
   }
   .sidePanelMobileToggle.active {
     background: var(--ac, #38bdf8);
@@ -2181,13 +2206,13 @@ form.in .btn { flex: none; padding: 0 22px; }
     display: flex !important;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px 10px;
+    padding: 10px 14px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-    margin: -12px -14px 10px -14px;
+    margin: -12px -14px 12px -14px;
     position: sticky;
     top: -12px;
     background: rgba(9, 13, 24, 0.98);
-    z-index: 20;
+    z-index: 25;
     border-radius: 20px 20px 0 0;
   }
   .sidePanelMobileHandle .handleBar {
@@ -2198,23 +2223,25 @@ form.in .btn { flex: none; padding: 0 22px; }
     width: 38px;
     height: 4px;
     border-radius: 99px;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.35);
   }
   .sidePanelMobileHandle .handleText {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ac);
   }
   .sidePanelMobileHandle .handleClose {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-radius: 999px;
     color: #ffffff;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    padding: 4px 10px;
+    padding: 5px 12px;
+    cursor: pointer;
+    touch-action: manipulation;
   }
 
   .sidePanelLeft {
@@ -2225,13 +2252,13 @@ form.in .btn { flex: none; padding: 0 22px; }
     right: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: min(78vh, 78dvh) !important;
-    max-height: min(78vh, 78dvh) !important;
+    height: min(80vh, 80dvh) !important;
+    max-height: min(80vh, 80dvh) !important;
     border-radius: 22px 22px 0 0 !important;
     border-inline: 0 !important;
     border-bottom: 0 !important;
     border-top: 1.5px solid rgba(255, 255, 255, 0.22) !important;
-    background: rgba(8, 12, 22, 0.97) !important;
+    background: rgba(8, 12, 22, 0.98) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.9) !important;
@@ -2239,7 +2266,9 @@ form.in .btn { flex: none; padding: 0 22px; }
     transform: translateY(calc(100% + 40px));
     transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
     pointer-events: none;
-    padding: 12px 14px calc(14px + var(--sab)) !important;
+    padding: 12px 14px calc(18px + var(--sab)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   .sidePanelLeft.open {
     transform: translateY(0) !important;
@@ -2248,12 +2277,12 @@ form.in .btn { flex: none; padding: 0 22px; }
 
   /* Camera Floating Bar on Mobile (Horizontal Strip) */
   .camBar3D {
-    top: calc(56px + var(--sat));
+    top: calc(96px + var(--sat));
     right: 8px;
     flex-direction: row;
     gap: 4px;
-    z-index: 25;
-    max-width: calc(100% - 150px);
+    z-index: 90;
+    max-width: calc(100% - 170px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;

@@ -738,6 +738,8 @@ export default {
     let deckChest = shuffle(CHEST);
 
     const leftPanel = h('aside', 'sidePanelLeft');
+    const leftPanelBody = h('div', 'sidePanelBody');
+    leftPanel.append(leftPanelBody);
     ctx.sideAdd(leftPanel);
 
     const logMsg = msg => {
@@ -891,7 +893,7 @@ export default {
         `;
       }).join('');
 
-      leftPanel.innerHTML = `
+      leftPanelBody.innerHTML = `
         <div class="spSection">
           <div class="spTitle">
             <span>👥 Giocatori & Pedine 3D</span>
@@ -917,7 +919,7 @@ export default {
       `;
 
       // Bind property badge clicks
-      leftPanel.querySelectorAll('.spPropBadge').forEach(el => {
+      leftPanelBody.querySelectorAll('.spPropBadge').forEach(el => {
         el.onclick = () => {
           sfx.click();
           selectInspectSpace(Number(el.dataset.sp));
@@ -925,13 +927,13 @@ export default {
       });
 
       // Bind token switcher modal
-      const tokBtn = leftPanel.querySelector('.sp-token-btn');
+      const tokBtn = leftPanelBody.querySelector('.sp-token-btn');
       if (tokBtn) {
         tokBtn.onclick = () => openTokenPickerModal();
       }
 
       // Bind direct build/sell/mortgage buttons inside the deed inspector
-      const bBuild = leftPanel.querySelector('.act-build');
+      const bBuild = leftPanelBody.querySelector('.act-build');
       if (bBuild) bBuild.onclick = () => {
         const sp = BOARD[inspectedIdx];
         const hCost = sp.house || sp.houseCost || 50;
@@ -944,7 +946,7 @@ export default {
           renderLeftPanel();
         }
       };
-      const bSell = leftPanel.querySelector('.act-sell');
+      const bSell = leftPanelBody.querySelector('.act-sell');
       if (bSell) bSell.onclick = () => {
         const sp = BOARD[inspectedIdx];
         const refund = sellBuilding(boardState, curP.id, inspectedIdx);
@@ -957,7 +959,7 @@ export default {
           renderLeftPanel();
         }
       };
-      const bMort = leftPanel.querySelector('.act-mort');
+      const bMort = leftPanelBody.querySelector('.act-mort');
       if (bMort) bMort.onclick = () => {
         const sp = BOARD[inspectedIdx];
         const val = mortgageValue(inspectedIdx);
@@ -969,7 +971,7 @@ export default {
         syncScores();
         renderLeftPanel();
       };
-      const bUnmort = leftPanel.querySelector('.act-unmort');
+      const bUnmort = leftPanelBody.querySelector('.act-unmort');
       if (bUnmort) bUnmort.onclick = () => {
         const sp = BOARD[inspectedIdx];
         const cost = unmortgageCost(inspectedIdx);
@@ -1130,6 +1132,10 @@ export default {
           fallbackBtn.onclick = () => settle(botPick ? botPick() : null);
           row.append(fallbackBtn);
         }
+        const sheetBtn = h('button', 'btn monopolySheetBtn', '👥 Scheda');
+        sheetBtn.title = 'Controlla contratti e patrimonio giocatori';
+        sheetBtn.onclick = () => { sfx.click(); ctx.toggleSidePanel?.(); };
+        row.append(sheetBtn);
         card.append(row);
         ctx.dock(card);
       });
@@ -1570,13 +1576,18 @@ export default {
           mainBtn.style.cssText = `font-size:1.08rem;font-weight:900;padding:12px 28px;min-height:50px;background:linear-gradient(135deg, ${player.color}, #2563eb);border:2px solid #ffffff;box-shadow:0 0 20px ${player.color}66;`;
           mainBtn.onclick = () => { sfx.click(); settle('go'); };
 
+          const sheetBtn = h('button', 'btn monopolySheetBtn', '👥 Scheda Giocatori');
+          sheetBtn.style.cssText = 'font-weight:700;';
+          sheetBtn.title = 'Visualizza patrimonio, contratti e proprietà di tutti i giocatori';
+          sheetBtn.onclick = () => { sfx.click(); ctx.toggleSidePanel?.(); };
+
           const tokBtn = h('button', 'btn', '🎩 Pedina 3D');
           tokBtn.onclick = () => { sfx.click(); openTokenPickerModal(); };
 
           const rulesBtn = h('button', 'btn', '📖 Regole');
           rulesBtn.onclick = () => { sfx.click(); ctx.showRules?.(); };
 
-          row.append(mainBtn, tokBtn, rulesBtn);
+          row.append(mainBtn, sheetBtn, tokBtn, rulesBtn);
           card.append(row);
           ctx.dock(card);
         };

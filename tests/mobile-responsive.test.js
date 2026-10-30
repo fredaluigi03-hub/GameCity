@@ -24,11 +24,25 @@ test('mobile responsive: style.css enforces 16px font-size on inputs for screens
   assert.match(css, /input,\s*select,\s*textarea\s*\{\s*font-size:\s*16px/i, '16px input font size prevents iOS Safari auto-zoom');
 });
 
-test('mobile responsive: sidePanelLeft has mobile toggle and slide-up drawer styles', () => {
+test('mobile responsive: sidePanelLeft has mobile toggle, backdrop, and slide-up drawer styles', () => {
   const css = fs.readFileSync(path.resolve(__dirname, '../src/style.css'), 'utf8');
+  assert.match(css, /\.sidePanelBackdrop/i, 'sidePanelBackdrop must be defined for mobile dimming');
   assert.match(css, /\.sidePanelMobileToggle/i);
   assert.match(css, /\.sidePanelMobileHandle/i);
   assert.match(css, /\.sidePanelLeft\.open/i);
+});
+
+test('mobile responsive: main.js exposes toggleSidePanel and makes scoreboard pchip clickable', () => {
+  const js = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
+  assert.match(js, /toggleSidePanel\s*\(/i, 'toggleSidePanel API must be exposed on ctx');
+  assert.match(js, /sidePanelBackdrop/i, 'Backdrop element must be wired in sideAdd');
+  assert.match(js, /ctx\.toggleSidePanel\?\.\(\)/i, 'Scoreboard pchips must invoke toggleSidePanel on tap');
+});
+
+test('mobile responsive: Monopoly uses persistent leftPanelBody and has dedicated dock sheet button', () => {
+  const js = fs.readFileSync(path.resolve(__dirname, '../src/monopoly/index.js'), 'utf8');
+  assert.match(js, /leftPanelBody/i, 'Monopoly must render inside leftPanelBody to preserve the mobile handle');
+  assert.match(js, /monopolySheetBtn/i, 'Monopoly must provide a thumb-friendly button in the turn dock');
 });
 
 test('mobile responsive: spaceHub.js includes virtual touch D-pad and responsive labels', () => {

@@ -809,7 +809,15 @@ export default {
       ctx.showRules();
     };
 
-    dockBar.append(drawBtn, autoBtn, speedBtn, masterBoardBtn, camBtn, rulesBtn);
+    const panarielloBtn = h('button', 'btn pill', '🏺 Panariello & Info');
+    panarielloBtn.style.fontSize = '0.85rem';
+    panarielloBtn.style.padding = '8px 14px';
+    panarielloBtn.onclick = () => {
+      sfx.click();
+      ctx.toggleSidePanel?.();
+    };
+
+    dockBar.append(drawBtn, autoBtn, speedBtn, panarielloBtn, masterBoardBtn, camBtn, rulesBtn);
     ctx.dock(dockBar);
 
     // Saluto inaugurale di Don Pasquale che cita il mazziere scelto
