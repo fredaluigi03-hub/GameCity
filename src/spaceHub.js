@@ -600,53 +600,60 @@ export function createSpaceLobby({
     return tex;
   }
 
-  // Texture personalizzata per i battenti di ciascuna porta
+  // Texture personalizzata per i battenti di ciascuna porta ad altissima definizione e visibilità
   function makeDoorPanelTexture(game, accentHex, secHex, isLeft) {
     const cv = document.createElement('canvas');
-    cv.width = 256;
-    cv.height = 512;
+    cv.width = 512;
+    cv.height = 1024;
     const ctx = cv.getContext('2d');
 
-    // Sfondo base specifico per stile di gioco
-    const grad = ctx.createLinearGradient(0, 0, 256, 512);
+    // Sfondo base con contrasto aumentato per risaltare nello spazio
+    const grad = ctx.createLinearGradient(0, 0, 512, 1024);
     if (game.id === 'tombola') {
       grad.addColorStop(0, '#5c2d16');
-      grad.addColorStop(1, '#2e1508');
+      grad.addColorStop(1, '#1e0c04');
     } else if (game.id === 'ouija') {
-      grad.addColorStop(0, '#27173a');
-      grad.addColorStop(1, '#0f0718');
+      grad.addColorStop(0, '#3b1d5c');
+      grad.addColorStop(1, '#0e0417');
     } else if (game.id === 'monopoly') {
-      grad.addColorStop(0, '#0f3d26');
-      grad.addColorStop(1, '#062013');
+      grad.addColorStop(0, '#0e4a2c');
+      grad.addColorStop(1, '#041c10');
     } else if (game.id === 'affari') {
-      grad.addColorStop(0, '#991b1b');
+      grad.addColorStop(0, '#b91c1c');
       grad.addColorStop(1, '#450a0a');
     } else if (game.id === 'forza4') {
-      grad.addColorStop(0, '#1d4ed8');
-      grad.addColorStop(1, '#1e3a8a');
+      grad.addColorStop(0, '#1e40af');
+      grad.addColorStop(1, '#0f172a');
     } else {
-      grad.addColorStop(0, '#162038');
-      grad.addColorStop(1, '#0a0f1d');
+      grad.addColorStop(0, '#1e293b');
+      grad.addColorStop(1, '#070b16');
     }
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 256, 512);
+    ctx.fillRect(0, 0, 512, 1024);
 
-    // Cornice battente
-    ctx.lineWidth = 8;
+    // Cornice esterna battente con doppio profilo luminoso
+    ctx.lineWidth = 14;
     ctx.strokeStyle = accentHex;
-    ctx.strokeRect(10, 10, 236, 492);
+    ctx.strokeRect(18, 18, 476, 988);
+
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.strokeRect(28, 28, 456, 968);
 
     // Formelle decorative superiori e inferiori
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 6;
     ctx.strokeStyle = secHex || '#fbbf24';
-    ctx.strokeRect(28, 32, 200, 195);
-    ctx.strokeRect(28, 260, 200, 210);
+    ctx.strokeRect(48, 56, 416, 400);
+    ctx.strokeRect(48, 550, 416, 420);
 
-    // Simbolo / motivo grafico specifico sulla porta
-    ctx.fillStyle = accentHex;
-    ctx.font = 'bold 68px Outfit, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    // Medaglione circolare superiore con icona gigante
+    ctx.beginPath();
+    ctx.arc(256, 220, 115, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = accentHex;
+    ctx.stroke();
 
     const ICONS = {
       eredita: '🏛️',
@@ -664,32 +671,68 @@ export function createSpaceLobby({
       ouija: '👁️',
       forza4: '🔴'
     };
-    ctx.fillText(ICONS[game.id] || '★', 128, 130);
+    ctx.font = 'bold 118px Outfit, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = accentHex;
+    ctx.fillText(ICONS[game.id] || '★', 256, 222);
 
-    // Decorazione specifica extra nel pannello basso
+    // Targhetta orizzontale centrale con il NOME DEL GIOCO scritto a lettere giganti
+    ctx.fillStyle = 'rgba(6, 10, 22, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(44, 460, 424, 76, 14);
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = accentHex;
+    ctx.stroke();
+
+    ctx.font = '900 44px "Bebas Neue", Outfit, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = accentHex;
+    ctx.shadowBlur = 14;
+    ctx.fillText(game.name.toUpperCase(), 256, 502);
+    ctx.shadowBlur = 0;
+
+    // Decorazione specifica extra nel pannello basso ad alto contrasto
     if (game.id === 'affari') {
-      // Nastro pacco dorato
       ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(114, 0, 28, 512);
-      ctx.fillRect(0, 234, 256, 24);
+      ctx.fillRect(238, 550, 36, 420);
+      ctx.fillRect(48, 740, 416, 36);
     } else if (game.id === 'forza4') {
-      // Oblò gialli e rossi stile Forza 4
       for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 2; c++) {
           ctx.beginPath();
-          ctx.arc(82 + c * 92, 305 + r * 55, 20, 0, Math.PI * 2);
+          ctx.arc(164 + c * 184, 630 + r * 110, 40, 0, Math.PI * 2);
           ctx.fillStyle = (r + c + (isLeft ? 0 : 1)) % 2 === 0 ? '#ef4444' : '#facc15';
           ctx.fill();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.stroke();
         }
       }
     } else if (game.id === 'tombola') {
-      // Griglia cartella napoletana stilizzata
       ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(44, 290, 168, 140);
-      ctx.font = 'bold 34px "Bebas Neue", sans-serif';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(70, 610, 372, 280);
+      ctx.font = 'bold 68px "Bebas Neue", sans-serif';
       ctx.fillStyle = '#fef08a';
-      ctx.fillText(isLeft ? '77 · 48' : '25 · 90', 128, 360);
+      ctx.fillText(isLeft ? '77 · 48' : '25 · 90', 256, 750);
+    } else if (game.id === 'monopoly') {
+      ctx.font = 'bold 56px "Bebas Neue", sans-serif';
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText(isLeft ? 'VIA! 200$' : 'PROBABILITÀ', 256, 750);
+    } else if (game.id === 'ouija') {
+      ctx.font = 'bold 54px "Bebas Neue", sans-serif';
+      ctx.fillStyle = '#e9d5ff';
+      ctx.fillText(isLeft ? 'YES · SÌ' : 'GOODBYE', 256, 750);
+    } else if (game.id === 'bingo') {
+      ctx.font = 'bold 64px "Bebas Neue", sans-serif';
+      ctx.fillStyle = '#60a5fa';
+      ctx.fillText(isLeft ? 'B · I · N' : 'G · O · 90', 256, 750);
+    } else {
+      ctx.font = 'bold 36px Outfit, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.fillText(isLeft ? '✦ GIOCO TV ✦' : '✦ LIVE SHOW ✦', 256, 750);
     }
 
     const tex = new THREE.CanvasTexture(cv);
@@ -697,34 +740,72 @@ export function createSpaceLobby({
     return tex;
   }
 
-  // Cartello Olografico 3D sopra ogni porta
+  // Cartello Olografico 3D ad altissima definizione e contrasto luminoso sopra ogni porta
   function makeHoloMarquee(game, index, accentHex) {
     const cv = document.createElement('canvas');
-    cv.width = 512;
-    cv.height = 220;
+    cv.width = 1024;
+    cv.height = 460;
     const ctx = cv.getContext('2d');
 
-    ctx.fillStyle = 'rgba(7, 11, 24, 0.94)';
-    ctx.roundRect(12, 12, 488, 196, 22);
+    // Sfondo gradiente ricco e profondo con riflesso satinato
+    const bgGrad = ctx.createLinearGradient(0, 0, 1024, 460);
+    bgGrad.addColorStop(0, 'rgba(14, 22, 46, 0.98)');
+    bgGrad.addColorStop(0.5, 'rgba(8, 12, 26, 0.96)');
+    bgGrad.addColorStop(1, 'rgba(4, 7, 18, 0.98)');
+    ctx.fillStyle = bgGrad;
+    ctx.beginPath();
+    ctx.roundRect(24, 24, 976, 412, 36);
     ctx.fill();
 
-    ctx.lineWidth = 5;
+    // Bordo neon con doppia linea ad altissima visibilità
+    ctx.lineWidth = 14;
     ctx.strokeStyle = accentHex;
     ctx.stroke();
 
-    ctx.font = '700 19px Outfit, sans-serif';
-    ctx.fillStyle = accentHex;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    // Pill badge superiore per categoria e numero porta
+    const tagText = `PORTA ${String(index + 1).padStart(2, '0')} · ${game.tag.toUpperCase()}`;
+    ctx.font = '800 30px Outfit, sans-serif';
+    const tagWidth = Math.min(880, ctx.measureText(tagText).width + 64);
+    const tagX = (1024 - tagWidth) / 2;
+
+    const pillGrad = ctx.createLinearGradient(tagX, 48, tagX + tagWidth, 48);
+    pillGrad.addColorStop(0, accentHex);
+    pillGrad.addColorStop(1, '#3b82f6');
+    ctx.fillStyle = pillGrad;
+    ctx.beginPath();
+    ctx.roundRect(tagX, 44, tagWidth, 54, 27);
+    ctx.fill();
+
+    ctx.fillStyle = '#050814';
     ctx.textAlign = 'center';
-    ctx.fillText(`PORTA ${String(index + 1).padStart(2, '0')} · ${game.tag.toUpperCase()}`, 256, 54);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tagText, 512, 72);
 
-    ctx.font = '900 46px "Bebas Neue", Outfit, sans-serif';
+    // Titolo del gioco gigante, bianco, brillante e ombreggiato con bagliore neon
+    ctx.font = '900 86px "Bebas Neue", Outfit, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(game.name.toUpperCase(), 256, 118);
+    ctx.shadowColor = accentHex;
+    ctx.shadowBlur = 30;
+    ctx.fillText(game.name.toUpperCase(), 512, 210);
+    ctx.shadowBlur = 0;
 
-    const pl = game.players ? `${game.players.min ?? 1}–${game.players.max ?? 4} Giocatori` : 'Gioco Ufficiale';
-    ctx.font = '600 20px Outfit, sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(`✨ ${pl} · Clicca o avvicinati per aprire`, 256, 172);
+    // Barra informativa concorrenti / tocca per entrare
+    const pl = game.players ? `${game.players.min ?? 1}–${game.players.max ?? 4} GIOCATORI` : '1 CONCORRENTE';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.beginPath();
+    ctx.roundRect(70, 310, 884, 82, 22);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.stroke();
+
+    ctx.font = '800 34px Outfit, sans-serif';
+    ctx.fillStyle = '#fde047'; // Oro brillante ad alto contrasto
+    ctx.fillText(`✨ ${pl} · TOCCA PER ENTRARE 🚪`, 512, 352);
 
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -995,24 +1076,49 @@ export function createSpaceLobby({
     const vortex = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 3.95), vortexMat);
     vortex.position.set(0, 2.1, -0.14);
 
-    // Cartello superiore con il nome del gioco
+    // Cartello superiore con il nome del gioco gigante e ultra-visibile
     const holoTex = makeHoloMarquee(g, i, a);
     const holoSign = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.5, 1.55),
+      new THREE.PlaneGeometry(5.4, 2.45),
       new THREE.MeshBasicMaterial({
         map: holoTex,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.98,
         side: THREE.DoubleSide,
         toneMapped: false
       })
     );
-    holoSign.position.set(0, 5.55, 0.1);
+    holoSign.position.set(0, 5.85, 0.15);
+
+    // Retro-illuminazione additiva ad aura per il cartello
+    const haloPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.4, 3.2),
+      new THREE.MeshBasicMaterial({
+        color: a,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+    );
+    haloPlane.position.set(0, 5.85, 0.05);
+
+    // Faretto teatrale specifico puntato direttamente sulla facciata della porta
+    const doorSpot = new THREE.SpotLight(a, 35, 25, Math.PI / 3, 0.45, 1.1);
+    doorSpot.position.set(0, 7.5, 4.2);
+    doorSpot.target = grp;
+    grp.add(doorSpot);
+
+    // Luce d'ambiente colorata per risaltare la porta anche a distanza
+    const doorRimLight = new THREE.PointLight(a, 12, 14);
+    doorRimLight.position.set(0, 2.4, 1.5);
+    grp.add(doorRimLight);
 
     // Sentiero luminoso radiale dal centro fino alla porta
     const pathLen = R - 2.6;
     const runwayLine = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.28, pathLen),
+      new THREE.PlaneGeometry(0.38, pathLen),
       new THREE.MeshBasicMaterial({
         color: a,
         transparent: true,
@@ -1029,7 +1135,7 @@ export function createSpaceLobby({
       leftPylon, rightPylon, lintel, threshold,
       neonL, neonR, neonT,
       hingeL, hingeR,
-      vortex, holoSign, runwayLine
+      vortex, haloPlane, holoSign, runwayLine
     );
 
     // Aggiungi sculture 3D uniche specifiche del gioco!
@@ -1047,6 +1153,9 @@ export function createSpaceLobby({
       hingeR,
       vortex,
       holoSign,
+      haloPlane,
+      doorSpot,
+      doorRimLight,
       runwayLine,
       isOpen: false
     };
@@ -1066,8 +1175,8 @@ export function createSpaceLobby({
   const title = h('div', 'lobbyTitle');
   title.innerHTML = `
     <p class="kicker" style="letter-spacing:0.3em">★ SPAZIO APERTO · HUB CENTRALE ★</p>
-    <h1 class="disp" style="font-size:clamp(2.1rem, 5.2vw, 3.6rem)">SCEGLI LA TUA PORTA</h1>
-    <p style="letter-spacing:0.16em;font-size:0.78rem;color:#bae6fd">MUOVITI CON <b>WASD / FRECCE</b> O <b>TRASCINA</b> · CLICCA UNA PORTA PER APRIRLA ED ENTRARE</p>
+    <h1 class="disp" style="font-size:clamp(1.9rem, 5.2vw, 3.6rem)">SCEGLI LA TUA PORTA</h1>
+    <p class="spaceSubText">RUOTA CON <b>TRASCINA / ‹ ›</b> · TOCCA UNA PORTA PER ENTRARE</p>
   `;
 
   const prev = h('button', 'arrow l', '‹');
@@ -1079,7 +1188,14 @@ export function createSpaceLobby({
 
   const info = h('div', 'dock');
   const tools = h('div', 'tools');
-  tools.append(speedBtn(), muteBtn());
+  const dpadToggle = h('button', 'pill btn dpadToggleBtn', '🕹️ Vola');
+  dpadToggle.setAttribute('aria-label', 'Mostra o nascondi joystick di volo');
+  dpadToggle.title = 'Attiva o disattiva il joystick per volare nello spazio';
+  dpadToggle.onclick = () => {
+    const isVis = dpad.classList.toggle('visible');
+    dpadToggle.classList.toggle('active', isVis);
+  };
+  tools.append(dpadToggle, speedBtn(), muteBtn());
 
   // Touch virtual D-pad for smartphone & tablet space locomotion
   const dpad = h('div', 'spaceMobileDpad');
@@ -1128,17 +1244,18 @@ export function createSpaceLobby({
     // Il personaggio si orienta verso la direzione di sguardo/movimento
     avatar.rotation.y = camYaw;
 
-    // Telecamera in terza persona dietro e leggermente sopra il personaggio:
-    // così vedi TE STESSO al centro e le porte in cerchio attorno a te nello spazio aperto!
+    // Telecamera in terza persona: su mobile avvicina la visuale e la alza per inquadrare maestosamente la porta
+    const isMobile = window.innerWidth <= 768;
+    const effCamDist = isMobile ? 3.3 : camDist;
     const px = avatar.position.x;
     const pz = avatar.position.z;
-    const camX = px - Math.sin(camYaw) * camDist;
-    const camZ = pz - Math.cos(camYaw) * camDist;
-    const camY = 2.6 + Math.sin(camPitch) * 3.8;
+    const camX = px - Math.sin(camYaw) * effCamDist;
+    const camZ = pz - Math.cos(camYaw) * effCamDist;
+    const camY = (isMobile ? 1.75 : 2.6) + Math.sin(camPitch) * 3.8;
 
-    const lookX = px + Math.sin(camYaw) * 9.0;
-    const lookZ = pz + Math.cos(camYaw) * 9.0;
-    const lookY = 2.15 - Math.sin(camPitch) * 1.2;
+    const lookX = px + Math.sin(camYaw) * 12.0;
+    const lookZ = pz + Math.cos(camYaw) * 12.0;
+    const lookY = (isMobile ? 2.5 : 2.15) - Math.sin(camPitch) * 1.2;
 
     S.go([camX, camY, camZ], [lookX, lookY, lookZ]);
   }
@@ -1151,20 +1268,37 @@ export function createSpaceLobby({
     setAccent(a, secCol);
 
     info.innerHTML = '';
-    const c = h('div', 'card info');
-    c.style.cssText = `border:1.5px solid ${a}88;box-shadow:0 12px 36px rgba(0,0,0,0.85), 0 0 28px ${a}44;`;
+    const c = h('div', 'card info spaceDoorCard');
+    c.style.cssText = `border:1.5px solid ${a}aa;box-shadow:0 12px 36px rgba(0,0,0,0.85), 0 0 28px ${a}55;`;
 
     const pl = g.players ? ` · ${g.players.min ?? 1}–${g.players.max ?? 4} giocatori` : ' · 1 Concorrente';
-    c.innerHTML = `
-      <div>
-        <p class="kicker" style="color:${a}">PORTA ${String(sel + 1).padStart(2, '0')} DI ${N} · ${esc(g.tag)}</p>
-        <h3 class="disp" style="font-size:2.1rem;margin:2px 0 6px">${esc(g.name)}</h3>
-        <p style="color:#cbd5e1;font-size:0.9rem;line-height:1.42">${esc(g.desc)}${pl}${b ? ` · Record <b class="gold">${b.toLocaleString('it-IT')}</b>` : ''}</p>
-      </div>
+
+    // Barra di navigazione integrata nella scheda: [ ‹ ] TITOLO [ › ]
+    const navRow = h('div', 'spaceDoorNavRow');
+
+    const prevDoorBtn = h('button', 'doorNavPill doorNavPrev', '‹');
+    prevDoorBtn.setAttribute('aria-label', 'Porta precedente');
+    prevDoorBtn.title = 'Ruota alla porta precedente';
+    prevDoorBtn.onclick = (e) => { e.stopPropagation(); sfx.click(); rotateTo(sel - 1); };
+
+    const titleBlock = h('div', 'doorTitleBlock');
+    titleBlock.innerHTML = `
+      <p class="kicker" style="color:${a};margin-bottom:2px;">PORTA ${String(sel + 1).padStart(2, '0')} DI ${N} · ${esc(g.tag)}</p>
+      <h3 class="disp doorHeading">${esc(g.name)}</h3>
     `;
 
-    const btnWrap = h('div', 'row');
-    btnWrap.style.cssText = 'margin:0;gap:10px;flex-wrap:wrap;';
+    const nextDoorBtn = h('button', 'doorNavPill doorNavNext', '›');
+    nextDoorBtn.setAttribute('aria-label', 'Porta successiva');
+    nextDoorBtn.title = 'Ruota alla porta successiva';
+    nextDoorBtn.onclick = (e) => { e.stopPropagation(); sfx.click(); rotateTo(sel + 1); };
+
+    navRow.append(prevDoorBtn, titleBlock, nextDoorBtn);
+
+    const descP = h('p', 'doorDesc');
+    descP.innerHTML = `${esc(g.desc)}${pl}${b ? ` · Record <b class="gold">${b.toLocaleString('it-IT')}</b>` : ''}`;
+
+    const btnWrap = h('div', 'row doorActionRow');
+    btnWrap.style.cssText = 'margin:6px 0 0;gap:8px;flex-wrap:wrap;';
 
     const rulesB = h('button', 'btn rulesBtn', '📖 Regole');
     rulesB.onclick = () => { sfx.click(); showRulesModal(g); };
@@ -1175,14 +1309,17 @@ export function createSpaceLobby({
     play.onclick = () => triggerPortalEntry(sel);
 
     btnWrap.append(rulesB, play);
-    c.append(btnWrap);
+    c.append(navRow, descP, btnWrap);
     info.append(c);
 
-    // Evidenzia la porta selezionata e il suo sentiero radiale
+    // Evidenzia la porta selezionata con riflettore teatrale ultra-luminoso e bagliore
     doors.forEach((d, idx) => {
       const active = idx === sel;
-      tween(d.holoSign.scale, [active ? 1.18 : 0.92, active ? 1.18 : 0.92, 1], 0.4, ease.overshoot);
-      d.runwayLine.material.opacity = active ? 0.68 : 0.16;
+      tween(d.holoSign.scale, [active ? 1.15 : 0.9, active ? 1.15 : 0.9, 1], 0.35, ease.overshoot);
+      d.haloPlane.material.opacity = active ? 0.75 : 0.18;
+      d.doorSpot.intensity = active ? 120 : 25;
+      d.doorRimLight.intensity = active ? 22 : 6;
+      d.runwayLine.material.opacity = active ? 0.75 : 0.14;
     });
 
     droneEyeMat.color.set(a);
