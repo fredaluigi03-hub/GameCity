@@ -15,7 +15,8 @@ import {
   netWorth,
   ownedBy,
   groupFor,
-  resolveCardMovement
+  resolveCardMovement,
+  applyCard
 } from '../src/monopoly/rules.js';
 
 test('Simulate full 4-player Monopoly game across multiple rounds without deadlocks', () => {
@@ -81,6 +82,10 @@ test('Simulate full 4-player Monopoly game across multiple rounds without deadlo
   let rounds = 0;
   const MAX_ROUNDS = 200;
 
+  let chanceDeck = [...CHANCE].sort(() => Math.random() - 0.5);
+  let chestDeck = [...CHEST].sort(() => Math.random() - 0.5);
+  let totalCardsExecuted = 0;
+
   while (activePlayers().length > 1 && rounds < MAX_ROUNDS) {
     rounds++;
     for (let i = 0; i < players.length; i++) {
@@ -138,7 +143,7 @@ test('Simulate full 4-player Monopoly game across multiple rounds without deadlo
         const space = BOARD[p.pos];
         assert.ok(space, `Space at pos ${p.pos} must exist`);
 
-        if (space.type === 'goToJail') {
+        if (space.type === 'gotojail' || space.type === 'goToJail') {
           p.pos = 10;
           p.jail = 1;
           p.doubles = 0;
@@ -146,6 +151,42 @@ test('Simulate full 4-player Monopoly game across multiple rounds without deadlo
           break;
         } else if (space.type === 'tax') {
           chargePlayer(p, space.amount, null);
+        } else if (space.type === 'chance' || space.type === 'chest') {
+          const deck = space.type === 'chance' ? chanceDeck : chestDeck;
+          if (deck.length === 0) {
+            const fresh = space.type === 'chance' ? [...CHANCE] : [...CHEST];
+            deck.push(...fresh.sort(() => Math.random() - 0.5));
+          }
+          const card = deck.shift();
+          totalCardsExecuted++;
+          const res = applyCard(state, p, card, sum);
+          if (res.jail) {
+            p.pos = 10;
+            p.jail = 1;
+            p.doubles = 0;
+            rollAgain = false;
+            break;
+          }
+          if (p.cash < 0) {
+            chargePlayer(p, 0, null); // trigger bankruptcy resolution if negative
+          }
+          if (res.rentDue > 0 && res.rentOwner !== null) {
+            chargePlayer(p, res.rentDue, players[res.rentOwner]);
+          } else if (res.moved) {
+            const dest = BOARD[p.pos];
+            if (['property', 'railroad', 'utility'].includes(dest.type)) {
+              const destOwner = state.owners[p.pos];
+              if (destOwner === null && p.cash >= dest.price + 100) {
+                p.cash -= dest.price;
+                state.owners[p.pos] = p.id;
+              } else if (destOwner !== null && destOwner !== p.id && !state.mortgages.has(p.pos)) {
+                const rent = rentDue(state, p.pos, sum);
+                chargePlayer(p, rent, players[destOwner]);
+              }
+            } else if (dest.type === 'tax') {
+              chargePlayer(p, dest.amount, null);
+            }
+          }
         } else if (['property', 'railroad', 'utility'].includes(space.type)) {
           const ownerId = state.owners[p.pos];
           if (ownerId === null) {
@@ -178,6 +219,7 @@ test('Simulate full 4-player Monopoly game across multiple rounds without deadlo
   const remaining = activePlayers();
   assert.ok(remaining.length >= 1, 'There must be at least one remaining player');
   assert.ok(rounds > 5, `Game must have progressed for several rounds, got ${rounds}`);
+  assert.ok(totalCardsExecuted > 0, `Chance and Chest cards must have been executed, got ${totalCardsExecuted}`);
 
   for (const p of players) {
     if (!p.bankrupt) {

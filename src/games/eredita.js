@@ -404,6 +404,7 @@ export default {
 
     // scelta generica a pulsanti
     function choose({p, title, q = '', opts, disabled = [], time = 0, cols = 2, bot, mark, onTimeout}) {
+      if (p && (p.retired || !p.alive)) return Promise.resolve(onTimeout ? onTimeout() : 0);
       return ctx.w(new Promise(res => {
         const card = h('div', 'card');
         card.innerHTML = `<div class="meta"><span>${title}</span>${p ? `<span class="who" style="--pc:${p.color}">${esc(p.name)}${p.bot ? ' · CPU' : ''}</span>` : ''}<span></span></div>${q ? `<h2>${q}</h2>` : ''}${time ? '<div class="timer"><i></i></div>' : ''}<div class="opts" style="grid-template-columns:repeat(${cols},minmax(0,1fr))"></div>`;
@@ -416,7 +417,10 @@ export default {
         });
         const key = e => { if (p?.bot || e.target.tagName === 'INPUT') return; const i = +e.key - 1; if (e.key.length === 1 && i >= 0 && i < opts.length && !btns[i].disabled) fin(i); };
         addEventListener('keydown', key);
-        const clean = () => { cd?.stop(); clearTimeout(tm); removeEventListener('keydown', key); };
+        const clean = () => { if (unsub) unsub(); cd?.stop(); clearTimeout(tm); removeEventListener('keydown', key); };
+        const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+          if (p && fp === p) fin(onTimeout ? onTimeout() : 0);
+        }) : null;
         ctx.onExit(clean);
         async function fin(i) {
           if (done || ctx.dead) return; done = true; clean();
@@ -509,7 +513,10 @@ export default {
           const cd = countdown(ctx, clock.get(p), {onEnd: () => end(false)});
           const rev = setInterval(() => { if (shown < order.length - 1) { show(order[shown++]); sfx.click(); } }, 2000);
           const pnt = setInterval(() => { clock.set(p, Math.max(0, cd.left())); paint(); }, 100);
-          const stopAll = () => { cd.stop(); clearInterval(rev); clearInterval(pnt); clearTimeout(tm); };
+          const unsubFf = ctx.onForfeit ? ctx.onForfeit(fp => {
+            if (fp === p || fp === a || fp === b) end(false);
+          }) : null;
+          const stopAll = () => { if (unsubFf) unsubFf(); cd.stop(); clearInterval(rev); clearInterval(pnt); clearTimeout(tm); };
           ctx.onExit(stopAll);
 
           if (p.bot) {

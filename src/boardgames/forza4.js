@@ -519,12 +519,26 @@ export default {
     }
 
     async function getHumanMove(player) {
+      if (player.retired || !player.alive) return -1;
       await ctx.passDevice(player);
+      if (player.retired || !player.alive) return -1;
       updateHover(hoveredCol);
       renderSidePanel();
       updateDock();
       return new Promise(resolve => {
+        let done = false;
+        const unsub = ctx.onForfeit ? ctx.onForfeit(p => {
+          if (p === player && !done) {
+            done = true;
+            if (pending) pending = null;
+            previewDisc.visible = false;
+            resolve(-1);
+          }
+        }) : null;
         pending = col => {
+          if (done) return;
+          done = true;
+          if (unsub) unsub();
           pending = null;
           previewDisc.visible = false;
           resolve(col);
@@ -555,6 +569,23 @@ export default {
       }
 
       if (ctx.dead || finished) return;
+
+      if (player.retired || !player.alive || col < 0) {
+        finished = true;
+        const winner = players[1 - turn];
+        ctx.setScore(winner, 1);
+        await host.say(`${player.name} si è ritirato dalla gara. Vittoria per ${winner.name}!`, { mood: 'celebrate' });
+        ctx.finish({
+          win: !winner.bot,
+          title: `Vittoria per ${winner.name}!`,
+          lines: [`${player.name} si è ritirato dalla gara.`],
+          ranking: [
+            { player: winner, score: 1 },
+            { player, score: 0 }
+          ]
+        });
+        return;
+      }
 
       const row = dropDisc(board, col, mark);
       if (row < 0) continue;

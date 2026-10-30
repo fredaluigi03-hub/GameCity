@@ -83,7 +83,8 @@ export function resolveCardMovement(position, card) {
     return {
       position: target,
       collectGo: target < position,
-      rentMultiplier: card.rentMultiplier || card.utilityMultiplier || 1
+      rentMultiplier: card.rentMultiplier || card.utilityMultiplier || 1,
+      utilityMultiplier: card.utilityMultiplier || null
     };
   }
   return null;
@@ -95,8 +96,9 @@ export function build(state, arg1, arg2) {
   const c = BOARD[index], level = state.houses[index] || 0;
   const cost = c.house || c.houseCost || 50;
   const p = state.players[owner];
-  if (p && p.cash !== undefined) {
-    p.cash -= cost;
+  if (p) {
+    if (p.cash !== undefined) p.cash -= cost;
+    if (p.data && p.data.cash !== undefined) p.data.cash -= cost;
   }
   state.houses[index] = level + 1;
   if (level === 4) { state.bank.houses += 4; state.bank.hotels--; }
@@ -108,11 +110,132 @@ export function sellBuilding(state, arg1, arg2) {
   if (!canSell(state, index, owner)) return 0;
   const c = BOARD[index], level = state.houses[index], value = Math.floor((c.house || c.houseCost || 50) / 2);
   const p = state.players[owner];
-  if (p && p.cash !== undefined) {
-    p.cash += value;
+  if (p) {
+    if (p.cash !== undefined) p.cash += value;
+    if (p.data && p.data.cash !== undefined) p.data.cash += value;
   }
   state.houses[index] = level - 1;
   if (level === 5) { state.bank.hotels++; state.bank.houses -= 4; }
   else state.bank.houses++;
   return value;
+}
+
+export function applyCard(state, player, card, diceTotal = 7) {
+  const pId = player.id !== undefined ? player.id : (state.players ? state.players.indexOf(player) : 0);
+  const addCash = (p, amt) => {
+    if (p.cash !== undefined) p.cash += amt;
+    if (p.data && p.data.cash !== undefined) p.data.cash += amt;
+  };
+  const getPos = p => (p.pos !== undefined ? p.pos : (p.data?.pos ?? 0));
+  const setPos = (p, pos) => {
+    if (p.pos !== undefined) p.pos = pos;
+    if (p.data) p.data.pos = pos;
+  };
+
+  const res = {
+    card,
+    cashDelta: 0,
+    moved: false,
+    newPosition: getPos(player),
+    collectedGo: false,
+    jail: false,
+    jailCard: false,
+    rentDue: 0,
+    rentOwner: null,
+    targetTile: null
+  };
+
+  // 1. Direct cash
+  if (card.cash !== undefined) {
+    addCash(player, card.cash);
+    res.cashDelta += card.cash;
+  }
+
+  // 2. Jail card
+  if (card.jailCard) {
+    if (player.jailCard !== undefined) player.jailCard = (player.jailCard || 0) + 1;
+    if (player.data) player.data.jailCard = (player.data.jailCard || 0) + 1;
+    res.jailCard = true;
+  }
+
+  // 3. Jail
+  if (card.jail) {
+    setPos(player, 10);
+    if (player.jail !== undefined) player.jail = 1;
+    if (player.data) player.data.jail = 1;
+    if (player.doubles !== undefined) player.doubles = 0;
+    if (player.data) player.data.doubles = 0;
+    res.jail = true;
+    res.newPosition = 10;
+    return res;
+  }
+
+  // 4. payEach
+  if (card.payEach) {
+    const others = (state.players || []).filter(p => p !== player && !p.bankrupt && !p.data?.bankrupt);
+    for (const other of others) {
+      addCash(player, -card.payEach);
+      addCash(other, card.payEach);
+      res.cashDelta -= card.payEach;
+    }
+  }
+
+  // 5. collectEach
+  if (card.collectEach) {
+    const others = (state.players || []).filter(p => p !== player && !p.bankrupt && !p.data?.bankrupt);
+    for (const other of others) {
+      addCash(other, -card.collectEach);
+      addCash(player, card.collectEach);
+      res.cashDelta += card.collectEach;
+    }
+  }
+
+  // 6. repair
+  if (card.repair && Array.isArray(card.repair)) {
+    const [hFee, oFee] = card.repair;
+    let fee = 0;
+    for (const idx of ownedBy(state, pId)) {
+      const lv = state.houses[idx] || 0;
+      if (lv === 5) fee += oFee;
+      else if (lv > 0) fee += lv * hFee;
+    }
+    if (fee > 0) {
+      addCash(player, -fee);
+      res.cashDelta -= fee;
+    }
+  }
+
+  // 7. Movement
+  if (card.move !== undefined || card.back !== undefined || card.nearest !== undefined) {
+    const curPos = getPos(player);
+    const mv = resolveCardMovement(curPos, card);
+    if (mv) {
+      res.moved = true;
+      res.newPosition = mv.position;
+      res.targetTile = BOARD[mv.position];
+
+      if (mv.collectGo) {
+        addCash(player, GO_SALARY);
+        res.collectedGo = true;
+        res.cashDelta += GO_SALARY;
+      }
+
+      setPos(player, mv.position);
+
+      const tile = BOARD[mv.position];
+      if (['property', 'railroad', 'utility'].includes(tile.type)) {
+        const owner = state.owners[mv.position];
+        if (owner !== null && owner !== pId && !state.mortgages.has(mv.position)) {
+          const r = rentDue(state, mv.position, diceTotal, {
+            railMultiplier: card.nearest === 'railroad' ? (card.rentMultiplier || 2) : 1,
+            utilityMultiplier: card.nearest === 'utility' ? (card.utilityMultiplier || 10) : null
+          });
+          res.rentDue = r;
+          res.rentOwner = owner;
+        }
+      }
+    }
+  }
+
+  return res;
 }

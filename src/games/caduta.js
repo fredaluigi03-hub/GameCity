@@ -269,12 +269,23 @@ export default {
 
     // ---------- choice card (human taps, CPU decides) ----------
     function choose(p, {kicker, title, items, time, onTime, bot, one}) {
+      if (p && (p.retired || !p.alive)) return Promise.resolve(items[0]?.value);
       return ctx.w(new Promise(res => {
         const card = h('div', 'card');
         card.innerHTML = `<div class="meta"><span>${kicker}</span>${who(p)}<span>${time ? '<b class="tl" style="color:var(--gold-hi)"></b> s' : ''}</span></div><h2>${title}</h2>${time ? '<div class="timer"><i></i></div>' : ''}<div class="opts"></div>`;
         const box = card.querySelector('.opts'); if (one) box.style.gridTemplateColumns = '1fr';
         let done = false, cd, bt;
-        const fin = v => { if (done) return; done = true; cd?.stop(); clearTimeout(bt); box.querySelectorAll('button').forEach(b => { b.disabled = true; }); sfx.click(); setTimeout(() => res(v), 350); };
+        const fin = v => {
+          if (done) return; done = true;
+          if (unsub) unsub();
+          cd?.stop(); clearTimeout(bt);
+          box.querySelectorAll('button').forEach(b => { b.disabled = true; });
+          sfx.click(); setTimeout(() => res(v), 350);
+        };
+        const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+          if (fp === p) fin(items[0]?.value);
+        }) : null;
+        ctx.onExit(() => { if (unsub) unsub(); });
         const btns = items.map((it, i) => { const b = h('button', 'opt', `<b>${it.tag ?? i + 1}</b><span>${it.label}</span>`); b.disabled = !!p.bot; b.onclick = () => fin(it.value); box.append(b); return b; });
         if (time) cd = countdown(ctx, time, {bar: card.querySelector('.timer i'), label: card.querySelector('.tl'), onEnd: () => fin(onTime)});
         if (p.bot) { const v = bot(); ctx.botThink(watch ? 1100 : 500, watch ? 2700 : 1100).then(async () => { btns[items.findIndex(it => it.value === v)]?.classList.add('picked'); await ctx.sleep(450); fin(v); }); }
@@ -295,6 +306,7 @@ export default {
 
     function turn(p, q, {clock, n, canPass = false, canScream = false, passProb = .5}) {
       const A = q.a;
+      if (p.retired || !p.alive) return Promise.resolve('time');
       return ctx.w(new Promise(res => {
         let typed = [], done = false, el = 0, lastS = -1;
         const hiddenN = () => q.shown.filter(s => !s).length;
@@ -340,7 +352,10 @@ export default {
           });
           card.append(kb);
           const acts = h('div', 'row'); acts.style.marginTop = '10px';
-          if (canPass) { const b = h('button', 'btn danger', 'Passo allo sfidante'); b.onclick = () => end('pass'); acts.append(b); }
+          if (canPass) {
+            const passLabel = clock.total >= 180 ? 'Passo' : 'Passo allo sfidante';
+            const b = h('button', 'btn danger', passLabel); b.onclick = () => end('pass'); acts.append(b);
+          }
           if (canScream) { screamB = h('button', 'btn', ''); screamB.onclick = scream; paintScream(); acts.append(screamB); }
           if (acts.children.length) card.append(acts);
         }
@@ -369,6 +384,9 @@ export default {
           if (plan.knows && el >= plan.answerAt) { const hid = [...A].filter((c, i) => !q.shown[i]); if (typed.length < hid.length) { typed.push(hid[typed.length]); draw(); } if (typed.length >= hid.length) end('ok'); }
         };
         const speed = p.bot ? (watch ? 1.5 : 3) : 1;
+        const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+          if (fp === p) end('time');
+        }) : null;
         const iv = setInterval(() => {
           if (done) return;
           const d = .1 * speed; clock.left -= d; el += d;
@@ -377,9 +395,11 @@ export default {
           if (p.bot) botStep();
           if (clock.left <= 0) end('time');
         }, 100);
-        ctx.onExit(() => { clearInterval(iv); removeEventListener('keydown', key); });
+        ctx.onExit(() => { if (unsub) unsub(); clearInterval(iv); removeEventListener('keydown', key); });
         function end(r) {
-          if (done) return; done = true; clearInterval(iv); removeEventListener('keydown', key);
+          if (done) return; done = true;
+          if (unsub) unsub();
+          clearInterval(iv); removeEventListener('keydown', key);
           card.querySelectorAll('button').forEach(b => { b.disabled = true; });
           if (r === 'ok') { draw('ok'); sfx.ok(); S.flashWith(PAL.ok); st.textContent = 'Esatto!'; }
           else if (r === 'time') { draw('reveal'); sfx.bad(); S.flashWith(PAL.bad); st.innerHTML = `Tempo scaduto! Era <b style="color:var(--gold-hi)">${A}</b>`; }

@@ -80,6 +80,9 @@ export function countdown(ctx, sec, {bar, label, onEnd} = {}) {
 // ---------- multiple choice ----------
 // player: optional ctx.players entry; if player.bot the CPU answers by itself (skill = player.skill ?? .6)
 export function askMC(ctx, {q, opts, right, time = 15, cat = '', n = '', onReveal, extra, player}) {
+  if (player && (player.retired || !player.alive)) {
+    return Promise.resolve({pick: -2, ok: false});
+  }
   return new Promise(res => {
     const card = h('div', 'card');
     const who = player ? `<span class="who" style="--pc:${player.color}">${player.name}${player.bot ? ' · CPU' : ''}</span>` : '';
@@ -88,9 +91,18 @@ export function askMC(ctx, {q, opts, right, time = 15, cat = '', n = '', onRevea
     const btns = opts.map((o, i) => { const b = h('button', 'opt', `<b>${'ABCD'[i]}</b><span>${o}</span>`); b.onclick = () => fin(i); box.append(b); return b; });
     const cd = countdown(ctx, time, {bar: card.querySelector('.timer i'), onEnd: () => fin(-1)});
     const key = e => { if (player?.bot || e.target.tagName === 'INPUT') return; const i = 'abcd'.indexOf(e.key.toLowerCase()); if (i >= 0 && i < opts.length && e.key.length === 1) fin(i); };
-    addEventListener('keydown', key); ctx.onExit(() => removeEventListener('keydown', key));
+    addEventListener('keydown', key);
+    const unsubForfeit = ctx?.onForfeit ? ctx.onForfeit(p => {
+      if (!player || p === player) fin(-2);
+    }) : null;
+    ctx.onExit(() => {
+      if (unsubForfeit) unsubForfeit();
+      removeEventListener('keydown', key);
+    });
     async function fin(i) {
-      if (done || ctx.dead) return; done = true; cd.stop(); removeEventListener('keydown', key);
+      if (done || ctx.dead) return; done = true; cd.stop();
+      if (unsubForfeit) unsubForfeit();
+      removeEventListener('keydown', key);
       if (i === -2) return res({pick: -2, ok: false});
       btns.forEach((b, k) => { b.disabled = true; if (k === right) b.classList.add('right'); else if (k === i) b.classList.add('wrong'); });
       const ok = i === right; (ok ? sfx.ok : sfx.bad)();

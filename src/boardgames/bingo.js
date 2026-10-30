@@ -8,8 +8,15 @@ import { generateBingoTicket, evaluateBingoCard } from './bingo-rules.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-// Bande cromatiche ufficiali delle 90 palline del Bingo
-function getBandInfo(n) {
+// Bande cromatiche ufficiali delle palline del Bingo (standard 75 o 90)
+function getBandInfo(n, total = 90) {
+  if (total === 75) {
+    if (n <= 15) return { name: 'Banda B (Blu)', color: '#2563eb', bg: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', range: '1–15' };
+    if (n <= 30) return { name: 'Banda I (Rossa)', color: '#dc2626', bg: 'linear-gradient(135deg, #ef4444, #b91c1c)', range: '16–30' };
+    if (n <= 45) return { name: 'Banda N (Oro)', color: '#f59e0b', bg: 'linear-gradient(135deg, #fbbf24, #d97706)', range: '31–45' };
+    if (n <= 60) return { name: 'Banda G (Verde)', color: '#10b981', bg: 'linear-gradient(135deg, #34d399, #059669)', range: '46–60' };
+    return { name: 'Banda O (Viola)', color: '#9333ea', bg: 'linear-gradient(135deg, #c084fc, #7e22ce)', range: '61–75' };
+  }
   if (n <= 18) return { name: 'Banda Blu', color: '#2563eb', bg: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', range: '1–18' };
   if (n <= 36) return { name: 'Banda Rossa', color: '#dc2626', bg: 'linear-gradient(135deg, #ef4444, #b91c1c)', range: '19–36' };
   if (n <= 54) return { name: 'Banda Oro', color: '#f59e0b', bg: 'linear-gradient(135deg, #fbbf24, #d97706)', range: '37–54' };
@@ -58,9 +65,10 @@ export default {
     });
 
     const P = ctx.players;
+    const totalBalls = ctx.cfg?.ballCount === 75 ? 75 : 90;
     const drawnNumbers = [];
     const drawnSet = new Set();
-    const urn = shuffle(Array.from({ length: 90 }, (_, i) => i + 1));
+    const urn = shuffle(Array.from({ length: totalBalls }, (_, i) => i + 1));
     let hasCinquinaWon = false;
     let cinquinaWinner = '';
     let isAuto = false;
@@ -68,9 +76,9 @@ export default {
     let isExtracting = false;
     let autoMarkEnabled = true;
 
-    // Assegna a ciascun giocatore la cartella Bingo
+    // Assegna a ciascun giocatore la cartella Bingo (15 numeri)
     P.forEach((p, idx) => {
-      p.data.ticket = generateBingoTicket(idx + 1);
+      p.data.ticket = generateBingoTicket(idx + 1, totalBalls);
       p.data.marked = new Set();
       p.data.status = 'In gioco';
     });
@@ -283,7 +291,7 @@ export default {
       mbCtx.font = 'bold 46px "Bebas Neue", Outfit, sans-serif';
       mbCtx.textAlign = 'center';
       mbCtx.textBaseline = 'top';
-      mbCtx.fillText('GRAN BINGO VIP · TABELLONE ELETTRONICO MASTER', W / 2, 30);
+      mbCtx.fillText(`GRAN BINGO VIP (${totalBalls} PALLINE) · TABELLONE ELETTRONICO MASTER`, W / 2, 30);
 
       const cols = 10;
       const rows = 9;
@@ -298,8 +306,14 @@ export default {
         const x = left + c * cellW;
         const y = top + r * cellH;
 
+        if (num > totalBalls) {
+          mbCtx.fillStyle = 'rgba(10, 15, 26, 0.3)';
+          mbCtx.fillRect(x + 3, y + 3, cellW - 6, cellH - 6);
+          continue;
+        }
+
         const isDrawn = drawnSet.has(num);
-        const band = getBandInfo(num);
+        const band = getBandInfo(num, totalBalls);
 
         if (isDrawn) {
           // Casella accesa con colore banda
@@ -469,7 +483,7 @@ export default {
 
       const recent = drawnNumbers.slice(-6).reverse();
       container.innerHTML = recent.map(n => {
-        const band = getBandInfo(n);
+        const band = getBandInfo(n, totalBalls);
         return `
           <div style="width:34px;height:34px;border-radius:50%;background:${band.bg};color:#fff;font-family:'Bebas Neue',Outfit,sans-serif;font-size:1.25rem;display:grid;place-items:center;flex:none;box-shadow:0 2px 8px rgba(0,0,0,0.5);border:1.5px solid rgba(255,255,255,0.7);">
             ${n}
@@ -641,7 +655,7 @@ export default {
       drawnNumbers.push(num);
       drawnSet.add(num);
 
-      const band = getBandInfo(num);
+      const band = getBandInfo(num, totalBalls);
 
       // 2. Pallina estratta risale il tubo di vetro verticale fino in cima
       showcaseBall.material.color.set(band.color);

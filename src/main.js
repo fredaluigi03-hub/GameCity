@@ -330,15 +330,20 @@ function launch(g, cfg) {
     dock: (...n) => dockEl.replaceChildren(...n),
     sideAdd: n => ui.append(n),
     ask: o => askMC(ctx, o),
+    _forfeitListeners: [],
+    onForfeit(cb) {
+      ctx._forfeitListeners.push(cb);
+      return () => { ctx._forfeitListeners = ctx._forfeitListeners.filter(f => f !== cb); };
+    },
     forfeitPlayer(p) {
       if (!p || !p.alive || ctx.dead) return;
       p.retired = true;
+      p.alive = false;
       sfx.bad();
+      ctx.scoreboard();
+      ctx._forfeitListeners.forEach(cb => { try { cb(p); } catch {} });
       if (ctx.onPlayerRetired) {
-        ctx.onPlayerRetired(p);
-      } else {
-        p.alive = false;
-        ctx.scoreboard();
+        try { ctx.onPlayerRetired(p); } catch {}
       }
     },
     // ---- players ----
@@ -355,14 +360,24 @@ function launch(g, cfg) {
     },
     // hot-seat interstitial; resolves at once for bots or single-human games
     passDevice(p) {
-      if (!p || p.bot || ctx.humans.length < 2) return Promise.resolve();
+      if (!p || p.bot || p.retired || !p.alive || ctx.humans.length < 2) return Promise.resolve();
       ctx.setActive(p);
       return ctx.w(new Promise(res => {
+        let done = false;
         const {ov, c} = overlay(`<p class="kicker">Cambio turno</p><div class="passDot" style="--pc:${p.color}"></div><h1 class="disp">Passa il dispositivo a <span style="color:${p.color}">${esc(p.name)}</span></h1><p class="sub">Premi quando sei pronto</p>`);
         ov.classList.add('pass');
         const btn = h('button', 'btn pri', 'Sono pronto'); c.append(btn); btn.focus();
-        btn.onclick = () => { ov.remove(); sfx.click(); res(); };
-        ctx.onExit(() => ov.remove());
+        const finish = () => {
+          if (done) return;
+          done = true;
+          ov.remove();
+          res();
+        };
+        btn.onclick = () => { sfx.click(); finish(); };
+        const unsub = ctx.onForfeit(fp => {
+          if (fp === p) finish();
+        });
+        ctx.onExit(() => { unsub(); ov.remove(); });
       }));
     },
     // bot helpers

@@ -264,7 +264,25 @@ export default {
         res(any(list));
         return;
       }
-      pickable = list; resolvePick = res;
+      if (cur?.p && (cur.p.retired || !cur.p.alive)) {
+        res(any(list));
+        return;
+      }
+      pickable = list;
+      let done = false;
+      const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+        if (fp === cur?.p && !done) {
+          done = true;
+          pickable = null;
+          res(any(list));
+        }
+      }) : null;
+      resolvePick = b => {
+        if (done) return;
+        done = true;
+        if (unsub) unsub();
+        res(b);
+      };
       const c = h('div', 'card'); c.innerHTML = `<div class="meta"><span>${meta}</span><span>${sub}</span></div>`;
       const g = h('div'); g.style.cssText = gridCss(58);
       [...list].sort((a, b) => a.n - b.n).forEach(b => { const bt = h('button', 'btn', `<b style="font-size:1rem">${b.n}</b><small style="font-size:.58rem;opacity:.75">${esc(b.reg.split(/[ -]/)[0])}</small>`); bt.style.cssText = btnCss; bt.setAttribute('aria-label', `Pacco ${b.n}, ${b.reg}`); bt.onclick = () => choose(b); g.append(bt); });
@@ -285,8 +303,28 @@ export default {
         res(opts[0][2]);
         return;
       }
+      if (cur?.p && (cur.p.retired || !cur.p.alive)) {
+        res(opts[0][2]);
+        return;
+      }
+      let done = false;
+      const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+        if (fp === cur?.p && !done) {
+          done = true;
+          res(opts[0][2]);
+        }
+      }) : null;
       const c = h('div', 'card msg'); c.innerHTML = `<div class="meta"><span>${meta[0]}</span><span>${meta[1]}</span></div>${html}`;
-      const row = h('div', 'row'); opts.forEach(([t, cls, v]) => { const b = h('button', 'btn ' + cls, t); b.onclick = () => { sfx.click(); res(v); }; row.append(b); });
+      const row = h('div', 'row'); opts.forEach(([t, cls, v]) => {
+        const b = h('button', 'btn ' + cls, t);
+        b.onclick = () => {
+          if (done) return;
+          done = true;
+          if (unsub) unsub();
+          sfx.click(); res(v);
+        };
+        row.append(b);
+      });
       c.append(row); ctx.dock(c); row.querySelector('button').focus();
     }));
     const regionPick = (meta, sub, list) => ctx.w(new Promise(async res => {
@@ -295,9 +333,30 @@ export default {
         res(any(list));
         return;
       }
+      if (cur?.p && (cur.p.retired || !cur.p.alive)) {
+        res(any(list));
+        return;
+      }
+      let done = false;
+      const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+        if (fp === cur?.p && !done) {
+          done = true;
+          res(any(list));
+        }
+      }) : null;
       const c = h('div', 'card'); c.innerHTML = `<div class="meta"><span>${meta}</span><span>${sub}</span></div>`;
       const g = h('div'); g.style.cssText = gridCss(104);
-      list.forEach(r => { const b = h('button', 'btn', esc(r)); b.style.cssText = btnCss; b.onclick = () => { sfx.click(); res(r); }; g.append(b); });
+      list.forEach(r => {
+        const b = h('button', 'btn', esc(r));
+        b.style.cssText = btnCss;
+        b.onclick = () => {
+          if (done) return;
+          done = true;
+          if (unsub) unsub();
+          sfx.click(); res(r);
+        };
+        g.append(b);
+      });
       c.append(g); ctx.dock(c);
     }));
     const note = (t, sub = '') => ctx.dock(h('div', 'card msg', `<div class="big disp" style="color:var(--gold);font-size:clamp(1.4rem,4vw,2rem)">${t}</div><div>${sub}</div>`));

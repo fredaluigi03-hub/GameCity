@@ -1103,18 +1103,33 @@ export default {
 
     // ---- Modals for Buying, Auctions, Trades & Cards ----
     const askChoice = (player, title, subtitle, buttons, botPick) => {
-      if (player.bot) return Promise.resolve(botPick());
+      if (ctx.dead || player.bot || player.data.bankrupt || !player.alive || player.retired) {
+        return Promise.resolve(botPick ? botPick() : null);
+      }
       return new Promise(res => {
+        let settled = false;
+        const settle = val => {
+          if (settled) return;
+          settled = true;
+          res(val);
+        };
         const card = h('div', 'card');
         card.style.maxWidth = '520px';
         card.innerHTML = `<div class="meta"><span>${esc(title)}</span><span style="color:${player.color}">${player.token.icon} ${esc(player.name)} · ${money(player.data.cash)}</span></div><p style="margin:6px 0 12px">${subtitle}</p>`;
         const row = h('div', 'row');
+        let enabledCount = 0;
         buttons.forEach(b => {
           const btn = h('button', 'btn ' + (b.pri ? 'pri' : ''), b.label);
           btn.disabled = !!b.disabled;
-          btn.onclick = () => { sfx.click(); res(b.value); };
+          if (!btn.disabled) enabledCount++;
+          btn.onclick = () => { sfx.click(); settle(b.value); };
           row.append(btn);
         });
+        if (enabledCount === 0) {
+          const fallbackBtn = h('button', 'btn', 'Chiudi / Continua');
+          fallbackBtn.onclick = () => settle(botPick ? botPick() : null);
+          row.append(fallbackBtn);
+        }
         card.append(row);
         ctx.dock(card);
       });
@@ -1315,9 +1330,15 @@ export default {
         </div>
       `;
       ctx.ui.append(cardOv);
-      setTimeout(() => cardOv.remove(), 3200);
 
-      await host.say(`${title} per ${player.name}: «${card.text}»`, { mood: 'surprised' });
+      // Pronuncia del conduttore asincrona / non bloccante: mai congelare la partita!
+      try {
+        host.say(`${title} per ${player.name}: «${card.text}»`, { mood: 'surprised' });
+      } catch {}
+
+      // Breve pausa drammatica visiva per leggere la carta (650ms)
+      await sleep(650);
+      cardOv.remove();
 
       // 1. Incasso o pagamento diretto in denaro
       if (card.cash !== undefined) {
@@ -1340,12 +1361,16 @@ export default {
       // 3. Vai dritto in Prigione
       if (card.jail) {
         await sendToJail(player);
+        syncScores();
+        renderLeftPanel();
+        return;
       }
 
       // 4. Paga a ogni giocatore
       if (card.payEach) {
         const others = activePlayers().filter(p => p.id !== player.id);
         for (const other of others) {
+          if (player.data.bankrupt) break;
           await chargePlayer(player, card.payEach, other, title);
         }
       }
@@ -1354,6 +1379,7 @@ export default {
       if (card.collectEach) {
         const others = activePlayers().filter(p => p.id !== player.id);
         for (const other of others) {
+          if (other.data.bankrupt) continue;
           await chargePlayer(other, card.collectEach, player, title);
         }
       }
@@ -1370,19 +1396,29 @@ export default {
         if (totalFee > 0) {
           logMsg(`🛠️ ${player.name} deve ${money(totalFee)} per riparazioni immobiliari.`);
           await chargePlayer(player, totalFee, null, 'Riparazioni immobiliari');
+        } else {
+          logMsg(`🛠️ Nessuna riparazione necessaria per ${player.name}.`);
         }
       }
 
       // 7. Carte Movimento (avanza a casella, indietro 3 passi, stazione o società più vicina)
       if (card.move !== undefined || card.back !== undefined || card.nearest !== undefined) {
-        const mv = resolveCardMovement(player.data.pos, card);
+        const startPos = player.data.pos;
+        const mv = resolveCardMovement(startPos, card);
         if (mv) {
           if (card.back) {
             logMsg(`⬅️ ${player.name} fa ${card.back} passi indietro.`);
             await animatePawnSteps3D(player, -card.back);
           } else {
-            const steps = (mv.position - player.data.pos + 40) % 40;
-            await animatePawnSteps3D(player, steps === 0 ? 40 : steps);
+            const steps = (mv.position - startPos + 40) % 40;
+            if (mv.position === 0 && steps === 0) {
+              player.data.cash += GO_SALARY;
+              sfx.win();
+              S.burst(PAL.goldHi, 80, 2.5);
+              logMsg(`${player.name} è già sul VIA! e ritira ${money(GO_SALARY)}!`);
+            } else if (steps > 0) {
+              await animatePawnSteps3D(player, steps);
+            }
           }
           player.data.pos = mv.position;
           syncTokensInstant();
@@ -1503,7 +1539,16 @@ export default {
 
     // Human management dock between rolls / before ending turn
     async function humanActionDock(player, phaseLabel, primaryLabel) {
+      if (ctx.dead || player.bot || player.data.bankrupt || !player.alive || player.retired) {
+        return Promise.resolve('go');
+      }
       return new Promise(res => {
+        let settled = false;
+        const settle = val => {
+          if (settled) return;
+          settled = true;
+          res(val);
+        };
         const drawDock = () => {
           const card = h('div', 'card');
           card.style.maxWidth = '680px';
@@ -1523,7 +1568,7 @@ export default {
           row.style.gap = '10px';
           const mainBtn = h('button', 'btn pri bigTurnBtn', primaryLabel);
           mainBtn.style.cssText = `font-size:1.08rem;font-weight:900;padding:12px 28px;min-height:50px;background:linear-gradient(135deg, ${player.color}, #2563eb);border:2px solid #ffffff;box-shadow:0 0 20px ${player.color}66;`;
-          mainBtn.onclick = () => { sfx.click(); res('go'); };
+          mainBtn.onclick = () => { sfx.click(); settle('go'); };
 
           const tokBtn = h('button', 'btn', '🎩 Pedina 3D');
           tokBtn.onclick = () => { sfx.click(); openTokenPickerModal(); };

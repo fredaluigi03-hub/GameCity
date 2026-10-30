@@ -1,10 +1,16 @@
-// Bingo rules engine (90-Ball European/Italian Standard)
+// Bingo rules engine (supports 75-Ball and 90-Ball Standard)
 
-export function generateBingoTicket(id = 1) {
-  // Columns 0-8: 1-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, 80-90
+export function generateBingoTicket(id = 1, ballCount = 90) {
+  // Columns 0-8: bounds partitioned by total ball count (75 or 90)
+  const is75 = ballCount === 75;
+  const bounds75 = [
+    [1, 8], [9, 16], [17, 24], [25, 32], [33, 41],
+    [42, 49], [50, 57], [58, 65], [66, 75]
+  ];
+
   const cols = Array.from({ length: 9 }, (_, c) => {
-    const min = c === 0 ? 1 : c * 10;
-    const max = c === 8 ? 90 : c * 10 + 9;
+    const min = is75 ? bounds75[c][0] : (c === 0 ? 1 : c * 10);
+    const max = is75 ? bounds75[c][1] : (c === 8 ? 90 : c * 10 + 9);
     const pool = [];
     for (let i = min; i <= max; i++) pool.push(i);
     for (let i = pool.length - 1; i > 0; i--) {

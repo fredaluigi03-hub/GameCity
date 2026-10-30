@@ -278,7 +278,19 @@ export default {
       ctx.dock(c); return c;
     };
     const choose = (t, sub, opts) => ctx.w(new Promise(res => {
-      const bs = opts.map(([l, cls], i) => { const b = h('button', 'btn ' + (cls || ''), l); b.onclick = () => { sfx.click(); res(i); }; return b; });
+      let resolved = false;
+      const done = i => {
+        if (!resolved) {
+          resolved = true;
+          if (unsub) unsub();
+          res(i);
+        }
+      };
+      const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+        if (cur && fp === cur) done(0);
+      }) : null;
+      ctx.onExit(() => { if (unsub) unsub(); });
+      const bs = opts.map(([l, cls], i) => { const b = h('button', 'btn ' + (cls || ''), l); b.onclick = () => { sfx.click(); done(i); }; return b; });
       msg(t, sub, ...bs); bs[0].focus();
     }));
     const bp = p => p.bot ? {...p, skill: .5 + (p.skill ?? .6) * .45} : p;
@@ -532,7 +544,10 @@ export default {
           pips.forEach((s, i) => { s.style.background = i < idx ? 'var(--ok)' : i === idx ? 'var(--gold-hi)' : 'rgba(244,239,227,.15)'; });
           if (phase === 'frozen') { qcd?.stop(); qcd = countdown(ctx, 10, {bar, onEnd: () => { sfx.bad(); end('fail'); }}); }
         };
-        const cleanup = () => { done = true; clock?.stop(); qcd?.stop(); clearInterval(drain); clearInterval(holdIv); timers.forEach(clearTimeout); removeEventListener('keydown', key); };
+        const unsubFf = ctx.onForfeit ? ctx.onForfeit(fp => {
+          if (fp === p) end('fail');
+        }) : null;
+        const cleanup = () => { done = true; if (unsubFf) unsubFf(); clock?.stop(); qcd?.stop(); clearInterval(drain); clearInterval(holdIv); timers.forEach(clearTimeout); removeEventListener('keydown', key); };
         const end = r => { if (done) return; cleanup(); btns.forEach(b => { b.disabled = true; }); hold.hidden = true; resolve({r, phase, jack}); };
         function answer(i) {
           if (done || busy) return;
@@ -649,9 +664,41 @@ export default {
     }
     setSiren(false);
     if (!champ) {
+      msg('Concorrente di Riserva', 'La sedia è rimasta vuota: entra il concorrente di riserva!');
+      await host.say('Colpo di scena! Nessun concorrente ha conquistato la sedia: entra il Concorrente di Riserva!', { mood: 'surprised', gesture: 'point' });
+      const rObj = person({
+        skin: pick(SKINS), hair: pick(HAIRS), suit: '#f59e0b', tie: '#ffffff',
+        c1: S.c1, c2: S.c2, eye: '#2563eb', female: Math.random() < .5
+      });
+      rObj.position.set(-8.5, 0, 3.5);
+      S.add(rObj);
+      const reserve = {
+        id: ctx.players.length + 99,
+        name: 'Riserva',
+        color: '#f59e0b',
+        bot: true,
+        skill: 0.65,
+        score: 0,
+        alive: true,
+        data: {
+          obj: rObj,
+          played: false,
+          tag: label3d('RISERVA', { w: 1.2, h: .35, px: 120, bg: '#f59e0b', color: '#000000', fs: .8 })
+        }
+      };
+      reserve.data.tag.position.set(0, 2.3, 0);
+      rObj.add(reserve.data.tag);
+      ctx.players.push(reserve);
+      ctx.scoreboard();
+      queue.push(reserve);
+
+      await walk(rObj, [[-3.5, 3.5], C]);
+      await stint(reserve, true);
+    }
+    if (!champ) {
       msg('Nessun campione', 'Nessuno è riuscito a sedersi sulla sedia del campione.');
       await talk('nochamp');
-      return ctx.finish({win: false, title: 'Nessun campione stasera', lines: ['Tutti i concorrenti sono stati eliminati prima di conquistare la sedia.'], score: 0,
+      return ctx.finish({win: false, title: 'Nessun campione stasera', lines: ['Tutti i concorrenti, inclusa la riserva, sono stati eliminati prima di conquistare la sedia.'], score: 0,
         ranking: ctx.players.map(x => ({player: x, score: 0}))});
     }
     await finalGame(champ);

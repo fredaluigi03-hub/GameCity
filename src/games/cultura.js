@@ -7,9 +7,9 @@ import {h, sfx, eur, shuffle, tone, countdown} from '../ui.js';
 import {createHost, HOSTS} from '../host.js';
 import {QB, FF} from './cultura_data.js';
 
-const LADDER = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000, 1000000];
+const LADDER = [50, 100, 200, 300, 500, 1000, 2000, 4000, 10000, 30000, 70000, 150000, 300000, 500000, 1000000];
 const L4 = 'ABCD';
-const safeFor = k => k >= 10 ? LADDER[9] : k >= 5 ? LADDER[4] : 0; // k = risposte giuste prima dell'errore
+const safeFor = k => k >= 10 ? LADDER[9] : k >= 5 ? LADDER[4] : 0; // k = risposte giuste prima dell'errore (500 € a Q5, 30.000 € a Q10)
 const money = n => n.toLocaleString('it-IT') + ' euro';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 const pick1 = a => a[Math.floor(Math.random() * a.length)];
@@ -29,15 +29,16 @@ const LINES = {
   ffIntro: ['Cominciamo con il dito più veloce: metti in ordine le quattro risposte, il più in fretta possibile!', 'Dito più veloce! Chi ordina giusto e prima di tutti viene a sedersi qui con me.'],
   ffWin: ['{name}, il dito più veloce è il tuo! Vieni, accomodati di fronte a me.', 'Complimenti {name}! Vieni al centro, la sedia ti aspetta.'],
   ffNone: ['Nessuno ha trovato l’ordine giusto. Riproviamo!', 'Ordine sbagliato per tutti. Un’altra, forza!'],
-  seat: ['{name}, eccoti al centro. Tre aiuti, quindici domande. Pronti?', 'Eccoci, {name}. Respira: si parte da cento euro.', 'Bene, {name}. Ricorda le soglie: mille e trentaduemila euro. Cominciamo.'],
+  seat: ['{name}, eccoti al centro. Tre aiuti, quindici domande. Pronti?', 'Eccoci, {name}. Respira: si parte da cinquanta euro.', 'Bene, {name}. Ricorda le soglie: cinquecento e trentamila euro. Cominciamo.'],
   final: ['È la tua risposta definitiva?', 'La accendiamo? È definitiva?', 'Accendo questa. È la tua risposta definitiva?'],
   wait: ['Mmh. Ci pensi bene?', 'Indecisione… o è solo strategia?', 'Il pubblico trattiene il fiato.', 'Hai tutto il tempo che ti serve.'],
   fifty: ['Computer, togli due risposte sbagliate.', 'Cinquanta e cinquanta. Via due risposte!'],
+  switch: ['Computer, cambio domanda! Azzeriamo e cambiamo.', 'Cambio domanda! La risposta non convinceva: vediamo la nuova.'],
   aud: ['Pubblico, tastierini alla mano: votate!', 'Chiediamo al pubblico in studio. Votate ora!'],
   phone: ['Facciamo una telefonata a casa.', 'Chiamiamo un amico. Trenta secondi!'],
   quit: ['Una scelta saggia, {name}. Porti a casa {value}.', 'Ti ritiri con {value}. Rispetto.'],
-  safe1: ['Prima soglia! Mille euro sono al sicuro.'],
-  safe2: ['Seconda soglia! Trentaduemila euro sono garantiti.']
+  safe1: ['Prima soglia! Cinquecento euro sono al sicuro.'],
+  safe2: ['Seconda soglia! Trentamila euro sono garantiti.']
 };
 
 const FRIENDS = [
@@ -63,16 +64,17 @@ export default {
     <p>Prima di salire sulla sedia centrale, i concorrenti affrontano la prova di qualificazione: <b>metti in ordine 4 opzioni</b> (cronologico, grandezza, logica). Chi risponde correttamente nel minor tempo conquista la sedia al centro dello studio. In più giocatori la prova si ripete dopo ogni scalata tra chi non ha ancora giocato.</p>
 
     <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🪜 La Scalata al Milione (15 Domande)</h4>
-    <p>Al centro dello studio affronti <b>15 domande a 4 scelte (A, B, C, D)</b> dal valore crescente, da 100 € fino a 1.000.000 €:</p>
+    <p>Al centro dello studio affronti <b>15 domande a 4 scelte (A, B, C, D)</b> dal valore crescente, da 50 € fino a 1.000.000 €:</p>
     <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
-      <li><b>Soglie di Sicurezza:</b> raggiunta la <b>5ª domanda (1.000 €)</b> e la <b>10ª domanda (32.000 €)</b>, il traguardo è garantito! Se sbagli successivamente, precipiti all'ultima soglia raggiunta.</li>
+      <li><b>Soglie di Sicurezza:</b> raggiunta la <b>5ª domanda (500 €)</b> e la <b>10ª domanda (30.000 €)</b>, il traguardo è garantito! Se sbagli successivamente, precipiti all'ultima soglia raggiunta.</li>
       <li><b>Facoltà di Ritiro:</b> prima di confermare una risposta puoi scegliere di ritirarti con il premio della domanda precedente.</li>
       <li><b>Risposta Definitiva:</b> per ogni domanda la conduttrice chiede conferma: puoi ragionarci con calma prima di accendere la risposta!</li>
     </ul>
 
-    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🆘 I Tre Aiuti (Lifelines)</h4>
+    <h4 style="margin:10px 0 6px;color:var(--gold);font-size:0.95rem">🆘 Gli Aiuti (Lifelines)</h4>
     <ul style="margin:4px 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px">
       <li><b>50:50:</b> il computer elimina automaticamente due risposte errate, lasciando solo la risposta esatta e un'alternativa ingannevole.</li>
+      <li><b>Switch (Cambio Domanda):</b> sostituisce la domanda corrente con una nuova dello stesso livello, azzerando le opzioni eliminate.</li>
       <li><b>Aiuto del Pubblico:</b> il pubblico in studio vota istantaneamente coi tastierini e viene mostrato un grafico a barre con le percentuali.</li>
       <li><b>Telefonata a Casa:</b> 30 secondi per consultare un amico esperto a scelta (Zio Franco per storia/geografia, Giulia per scienza/attualità o Marco per sport/musica/cinema).</li>
     </ul>
@@ -85,9 +87,9 @@ export default {
   `,
   rules: [
     'Dito più veloce: metti in ordine quattro risposte toccandole in sequenza. Chi ordina giusto nel minor tempo si siede al centro. Con pochi concorrenti le domande dito più veloce sono due, e contano risposte giuste e tempo totale.',
-    'Al centro: 15 domande a 4 risposte, sempre più difficili, da 100 € a 1.000.000 €. La difficoltà delle domande scelta nel setup sposta l’intera scala. Prima di accendere una risposta la conduttrice chiede se è definitiva.',
-    'Soglie di sicurezza alla 5ª (1.000 €) e alla 10ª domanda (32.000 €): se sbagli scendi all’ultima soglia raggiunta. Puoi ritirarti quando vuoi e tenere quanto hai vinto.',
-    'Tre aiuti, una volta sola: 50:50, Aiuto del pubblico, Telefonata a casa.',
+    'Al centro: 15 domande a 4 risposte, sempre più difficili, da 50 € a 1.000.000 €. La difficoltà delle domande scelta nel setup sposta l’intera scala. Prima di accendere una risposta la conduttrice chiede se è definitiva.',
+    'Soglie di sicurezza alla 5ª (500 €) e alla 10ª domanda (30.000 €): se sbagli scendi all’ultima soglia raggiunta. Puoi ritirarti quando vuoi e tenere quanto hai vinto.',
+    'Aiuti disponibili: 50:50, Cambio domanda (Switch), Aiuto del pubblico, Telefonata a casa.',
     'In più giocatori: dopo ogni partita si rifà il dito più veloce tra chi non ha ancora giocato, finché tutti sono passati al centro. Vince chi porta a casa di più.'
   ],
   async start(ctx) {
@@ -163,14 +165,14 @@ export default {
       return pip;
     });
     const icons = {};
-    [['fifty', '50:50'], ['aud', '👥'], ['phone', '📞']].forEach(([id, t], j) => {
-      const g = new THREE.Group(); g.position.set(-.75 + j * .75, 2.28, .02); ladder.add(g);
+    [['fifty', '50:50'], ['switch', '🔄'], ['aud', '👥'], ['phone', '📞']].forEach(([id, t], j) => {
+      const g = new THREE.Group(); g.position.set(-.85 + j * .57, 2.28, .02); ladder.add(g);
       const discM = mat('#141d44', {metalness: .5, roughness: .3});
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(.26, .26, .05, 32), discM); disc.rotation.x = Math.PI / 2; g.add(disc);
-      const rg = new THREE.Mesh(new THREE.TorusGeometry(.26, .02, 8, 40), metal); g.add(rg);
-      const lb = label3d(t, {w: .46, h: .46, px: 200, bg: null, border: null, fs: id === 'fifty' ? .4 : .55}); lb.position.z = .04; g.add(lb);
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .05, 32), discM); disc.rotation.x = Math.PI / 2; g.add(disc);
+      const rg = new THREE.Mesh(new THREE.TorusGeometry(.24, .02, 8, 40), metal); g.add(rg);
+      const lb = label3d(t, {w: .42, h: .42, px: 200, bg: null, border: null, fs: id === 'fifty' ? .36 : .52}); lb.position.z = .04; g.add(lb);
       const x = new THREE.Group(); x.visible = false; g.add(x);
-      [1, -1].forEach(s => { const b = new THREE.Mesh(new THREE.BoxGeometry(.56, .05, .02), mat('#9c2c3c', {emissive: '#2e080f'})); b.rotation.z = s * Math.PI / 4; b.position.z = .07; x.add(b); });
+      [1, -1].forEach(s => { const b = new THREE.Mesh(new THREE.BoxGeometry(.52, .05, .02), mat('#9c2c3c', {emissive: '#2e080f'})); b.rotation.z = s * Math.PI / 4; b.position.z = .07; x.add(b); });
       icons[id] = {g, discM, lb, x};
     });
     function resetLadder() {
@@ -305,12 +307,23 @@ export default {
 
     // ================= FASTEST FINGER =================
     async function ffPlay(c, f) {
+      if (c.retired || !c.alive) return {ok: false, t: 99};
       const order = shuffle([0, 1, 2, 3]), opts = order.map(r => f.items[r]);
       shot('ff');
       const ready = h('button', 'btn pri', 'Via!');
       ctx.dock((() => { const x = card(`<div class="meta"><span>Dito più veloce</span>${who(c)}<span>20 secondi</span></div><h2>Tocca a ${esc(c.name)}: preparati!</h2><p style="color:var(--mut);margin-bottom:12px">Ti verranno mostrate quattro risposte: toccale nell’ordine giusto, anche sui pannelli o con i tasti A–D. Il tempo parte quando compare la domanda.</p>`); x.append(ready); return x; })());
       ready.focus();
+      let readyDone = false;
+      const unsubReady = ctx.onForfeit ? ctx.onForfeit(fp => {
+        if (fp === c && !readyDone) {
+          readyDone = true;
+          ready.click();
+        }
+      }) : null;
       await clickOf(ready);
+      readyDone = true;
+      if (unsubReady) unsubReady();
+      if (c.retired || !c.alive) return {ok: false, t: 99};
       showBoard(f.q, opts); host.ask(f.q);
       const x = card(`<div class="meta"><span>Dito più veloce</span>${who(c)}<span class="sq">—</span></div><h2>${esc(f.q)}</h2><div class="timer"><i></i></div>`);
       const box = h('div', 'opts'), seq = [];
@@ -320,6 +333,10 @@ export default {
       let done = false, t0 = performance.now(), fin;
       const end = new Promise(r => { fin = r; });
       const cd = countdown(ctx, 20, {bar: x.querySelector('.timer i'), onEnd: () => finish()});
+      const unsubFf = ctx.onForfeit ? ctx.onForfeit(fp => {
+        if (fp === c) finish();
+      }) : null;
+      ctx.onExit(() => { if (unsubFf) unsubFf(); });
       function tap(j) {
         if (done || seq.includes(j)) return;
         seq.push(j); sfx.click(); btns[j].disabled = true; btns[j].classList.add('picked'); btns[j].querySelector('b').textContent = seq.length;
@@ -328,7 +345,11 @@ export default {
         if (seq.length === 4) finish();
       }
       again.onclick = () => { if (done) return; seq.length = 0; sq.textContent = '—'; btns.forEach((b, j) => { b.disabled = false; b.classList.remove('picked'); b.querySelector('b').textContent = L4[j]; plates[j].lt.set(L4[j] + ':'); paint(plates[j], 'idle', .2); }); };
-      function finish() { if (done) return; done = true; cd.stop(); clearInput(); fin(); }
+      function finish() {
+        if (done) return; done = true;
+        if (unsubFf) unsubFf();
+        cd.stop(); clearInput(); fin();
+      }
       keyFn = k => { const j = 'abcd'.indexOf(k); if (j >= 0) tap(j); };
       plateFn = tap;
       await W(end);
@@ -387,8 +408,22 @@ export default {
       p[top] += 100 - p.reduce((a, b) => a + b, 0);
       return p;
     }
-    async function runLife(id, p, q, st) {
+    async function runLife(id, p, qRef, st) {
       lifes[id] = false; useIcon(id); clearInput();
+      if (id === 'switch') {
+        await talk(pick1(LINES.switch || ['Computer, cambio domanda!']), {to: p});
+        sfx.whoosh();
+        const newQ = drawQuestion(qRef.k);
+        qRef.q = newQ;
+        st.removed.clear();
+        plates.forEach(pl => paint(pl, 'idle', .15));
+        showBoard(newQ.q, newQ.opts);
+        st.notes.push('<div style="color:var(--mut);font-size:.9rem">🔄 Cambio domanda: ecco la nuova domanda!</div>');
+        await T(600);
+        if (!turbo && !skip) host.ask(newQ.q);
+        return;
+      }
+      const q = qRef.q;
       if (id === 'fifty') {
         await talk(pick1(LINES.fifty), {to: p}); sfx.whoosh();
         shuffle([0, 1, 2, 3].filter(i => i !== q.right && !st.removed.has(i))).slice(0, 2).forEach(i => { st.removed.add(i); offPlate(i); });
@@ -451,7 +486,7 @@ export default {
       const row = h('div', 'row'); row.style.marginTop = '12px'; c.append(row);
       const lb = {};
       if (!watch) {
-        [['fifty', '50:50'], ['aud', '👥 Pubblico'], ['phone', '📞 Casa']].forEach(([id, t]) => { const b = h('button', 'btn', t); b.disabled = !lifes[id]; b.setAttribute('aria-label', 'Aiuto ' + t); row.append(b); lb[id] = b; });
+        [['fifty', '50:50'], ['switch', '🔄 Switch'], ['aud', '👥 Pubblico'], ['phone', '📞 Casa']].forEach(([id, t]) => { const b = h('button', 'btn', t); b.disabled = !lifes[id]; b.setAttribute('aria-label', 'Aiuto ' + t); row.append(b); lb[id] = b; });
         const quit = h('button', 'btn danger', k ? `Ritirati · ${eur(LADDER[k - 1])}` : 'Ritirati'); quit.disabled = !k; row.append(quit); lb.quit = quit;
       } else {
         const msg = h('div', '', `<span style="color:var(--mut)">${esc(p.name)} sta pensando…</span>`); msg.style.cssText = 'flex:2;align-self:center';
@@ -462,13 +497,25 @@ export default {
       return {btns, lb, c};
     }
     function humanAct(p, q, k, st) {
+      if (p.retired || !p.alive) return Promise.resolve({t: 'quit'});
       const {btns, lb} = qCard(p, q, k, st, false);
       return W(new Promise(res => {
-        btns.forEach((b, i) => { b.onclick = () => res({t: 'pick', i}); });
-        ['fifty', 'aud', 'phone'].forEach(id => { lb[id].onclick = () => res({t: 'life', id}); });
-        lb.quit.onclick = () => res({t: 'quit'});
-        keyFn = c => { const i = 'abcd'.indexOf(c); if (i >= 0 && !st.removed.has(i)) res({t: 'pick', i}); };
-        plateFn = i => { if (!st.removed.has(i)) res({t: 'pick', i}); };
+        let done = false;
+        const act = r => {
+          if (done) return;
+          done = true;
+          if (unsub) unsub();
+          res(r);
+        };
+        const unsub = ctx.onForfeit ? ctx.onForfeit(fp => {
+          if (fp === p) act({t: 'quit'});
+        }) : null;
+        ctx.onExit(() => { if (unsub) unsub(); });
+        btns.forEach((b, i) => { b.onclick = () => act({t: 'pick', i}); });
+        ['fifty', 'switch', 'aud', 'phone'].forEach(id => { if (lb[id]) lb[id].onclick = () => act({t: 'life', id}); });
+        lb.quit.onclick = () => act({t: 'quit'});
+        keyFn = c => { const i = 'abcd'.indexOf(c); if (i >= 0 && !st.removed.has(i)) act({t: 'pick', i}); };
+        plateFn = i => { if (!st.removed.has(i)) act({t: 'pick', i}); };
       }));
     }
     async function botAct(p, q, k, st) {
@@ -519,44 +566,46 @@ export default {
       clearInput(); turbo = !!p.bot; skip = false;
       await ctx.passDevice(p); ctx.setActive(p);
       p.data.podium.light(PAL.goldHi);
-      shot('wide'); resetLadder(); lifes = {fifty: true, aud: true, phone: true};
+      shot('wide'); resetLadder(); lifes = {fifty: true, switch: true, aud: true, phone: true};
       ctx.dock(card(`<div class="meta"><span>Al centro</span>${who(p)}<span></span></div><h2>${esc(p.name)} si siede al centro dello studio.</h2>`, 'card msg'));
       await toSeat(p); host.turnTo(p);
       shot('host');
       await host.say(fill(pick1(LINES.seat), {name: p.name}), {mood: 'happy', gesture: 'wave', to: p});
       let won = 0, res = '';
       for (let k = 0; k < 15; k++) {
-        const q = drawQuestion(k);
+        if (p.retired || !p.alive) break;
+        const qRef = { q: drawQuestion(k), k };
         hud(p, k);
         cursor.visible = true; tween(cursor.position, {y: rowY(k)}, .7, 'spring');
         if (!skip) { shot('ladder'); await lightsFor(k); await T(500); }
-        const intro = k === 0 ? `${p.name}, prima domanda, per cento euro.` : k === 14 ? 'Ultima domanda. Per un milione di euro. Silenzio in studio.' : `Domanda numero ${k + 1}, per ${money(LADDER[k])}.` + (k === 4 ? ' È la domanda della prima soglia.' : k === 9 ? ' Seconda soglia in vista.' : '');
+        const intro = k === 0 ? `${p.name}, prima domanda, per cinquanta euro.` : k === 14 ? 'Ultima domanda. Per un milione di euro. Silenzio in studio.' : `Domanda numero ${k + 1}, per ${money(LADDER[k])}.` + (k === 4 ? ' È la domanda della prima soglia (500 €).' : k === 9 ? ' Seconda soglia in vista (30.000 €).' : '');
         await talk(intro, {mood: k >= 12 ? 'think' : 'neutral', to: p});
-        showBoard(q.q, q.opts);
-        shot('board'); if (!turbo && !skip) host.ask(q.q);
+        showBoard(qRef.q.q, qRef.q.opts);
+        shot('board'); if (!turbo && !skip) host.ask(qRef.q.q);
         const st = {removed: new Set(), notes: []};
         let choice = null;
         while (choice === null) {
-          const act = p.bot ? await botAct(p, q, k, st) : await humanAct(p, q, k, st);
+          if (p.retired || !p.alive) { choice = -1; break; }
+          const act = p.bot ? await botAct(p, qRef.q, k, st) : await humanAct(p, qRef.q, k, st);
           clearInput();
-          if (act.t === 'life') { await runLife(act.id, p, q, st); continue; }
+          if (act.t === 'life') { await runLife(act.id, p, qRef, st); continue; }
           if (act.t === 'quit') { if (p.bot || await confirmQuit(p, k)) choice = -1; continue; }
           paint(plates[act.i], 'sel', .25); sfx.click(); shot('tight');
-          if (await confirmFinal(p, q, act.i)) choice = act.i; else { paint(plates[act.i], 'idle'); shot('board'); }
+          if (await confirmFinal(p, qRef.q, act.i)) choice = act.i; else { paint(plates[act.i], 'idle'); shot('board'); }
         }
         if (choice === -1) {
           won = k ? LADDER[k - 1] : 0; res = `si ritira alla domanda ${k + 1} con ${eur(won)}`;
-          paint(plates[q.right], 'ok'); shot('board');
-          ctx.dock(card(`<div class="meta"><span>Ritiro</span>${who(p)}<span></span></div><h2>${esc(p.name)} si ritira.</h2><p>La risposta giusta era <b>${L4[q.right]}: ${esc(q.opts[q.right])}</b>.</p>`, 'card msg'));
+          paint(plates[qRef.q.right], 'ok'); shot('board');
+          ctx.dock(card(`<div class="meta"><span>Ritiro</span>${who(p)}<span></span></div><h2>${esc(p.name)} si ritira.</h2><p>La risposta giusta era <b>${L4[qRef.q.right]}: ${esc(qRef.q.opts[qRef.q.right])}</b>.</p>`, 'card msg'));
           skip = false; await host.say(fill(pick1(LINES.quit), {name: p.name, value: money(won)}), {mood: 'happy', gesture: 'clap', to: p});
           break;
         }
-        const ok = await reveal(p, q, choice, k);
+        const ok = await reveal(p, qRef.q, choice, k);
         if (!ok) {
           won = safeFor(k); res = `sbaglia la domanda ${k + 1} e scende a ${eur(won)}`;
           skip = false; turbo = false;
           await host.react('wrong', p); await T(400);
-          await host.say(`La risposta giusta era la ${L4[q.right]}: ${q.opts[q.right]}. ${won ? `Porti a casa comunque ${money(won)}.` : 'Purtroppo esci senza vincite.'}`, {mood: 'sad', to: p});
+          await host.say(`La risposta giusta era la ${L4[qRef.q.right]}: ${qRef.q.opts[qRef.q.right]}. ${won ? `Porti a casa comunque ${money(won)}.` : 'Purtroppo esci senza vincite.'}`, {mood: 'sad', to: p});
           break;
         }
         won = LADDER[k]; pips[k].material.color.set(PAL.gold); ctx.setScore(p, won);
