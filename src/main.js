@@ -198,7 +198,7 @@ function setup(g) {
 
   const seats = h('div', 'seats');
   const rosterNote = h('p', 'sub rosterNote'); rosterNote.hidden = true;
-  const row = h('div', 'row'), back = h('button', 'btn', 'Indietro'), rulesB = h('button', 'btn rulesBtn', '📖 Regole'), go = h('button', 'btn pri', 'Inizia lo show');
+  const row = h('div', 'row setupActionRow'), back = h('button', 'btn', 'Indietro'), rulesB = h('button', 'btn rulesBtn', '📖 Regole'), go = h('button', 'btn pri', 'Inizia lo show');
   rulesB.onclick = () => showRulesModal(g);
   row.append(back, rulesB, go); c.append(seg, sw, rosterNote, cdRow, qdRow, spRow, ...(modeRow ? [modeRow] : []), seats, row);
   const swIn = sw.querySelector('input');
@@ -360,7 +360,29 @@ function launch(g, cfg) {
     onExit: f => ctx.exits.push(f),
     hud: html => { right.innerHTML = html; },
     dock: (...n) => dockEl.replaceChildren(...n),
-    sideAdd: n => ui.append(n),
+    sideAdd: n => {
+      ui.append(n);
+      if (n && n.classList && n.classList.contains('sidePanelLeft')) {
+        const toggleBtn = h('button', 'pill btn sidePanelMobileToggle', '📋 Scheda Tavolo ▾');
+        toggleBtn.setAttribute('aria-label', 'Mostra o nascondi scheda tavolo');
+        toggleBtn.onclick = () => {
+          const isOpen = n.classList.toggle('open');
+          toggleBtn.classList.toggle('active', isOpen);
+          toggleBtn.innerHTML = isOpen ? '✕ Chiudi Scheda' : '📋 Scheda Tavolo ▾';
+        };
+        const handle = h('div', 'sidePanelMobileHandle');
+        handle.innerHTML = '<span class="handleBar"></span><span class="handleText">Scheda & Dettagli Partita</span><button type="button" class="handleClose">✕ Chiudi</button>';
+        handle.querySelector('.handleClose').onclick = e => {
+          e.stopPropagation();
+          n.classList.remove('open');
+          toggleBtn.classList.remove('active');
+          toggleBtn.innerHTML = '📋 Scheda Tavolo ▾';
+        };
+        n.prepend(handle);
+        ui.append(toggleBtn);
+        ctx.onExit(() => toggleBtn.remove());
+      }
+    },
     ask: o => askMC(ctx, o),
     _forfeitListeners: [],
     onForfeit(cb) {

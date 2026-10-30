@@ -1080,7 +1080,41 @@ export function createSpaceLobby({
   const info = h('div', 'dock');
   const tools = h('div', 'tools');
   tools.append(speedBtn(), muteBtn());
-  ui.append(title, prev, next, info, tools);
+
+  // Touch virtual D-pad for smartphone & tablet space locomotion
+  const dpad = h('div', 'spaceMobileDpad');
+  const dpadUp = h('button', 'dpadBtn dpadUp', '▲');
+  const dpadDown = h('button', 'dpadBtn dpadDown', '▼');
+  const dpadLeft = h('button', 'dpadBtn dpadLeft', '◀');
+  const dpadRight = h('button', 'dpadBtn dpadRight', '▶');
+  dpadUp.setAttribute('aria-label', 'Avanza nello spazio');
+  dpadDown.setAttribute('aria-label', 'Indietreggia nello spazio');
+  dpadLeft.setAttribute('aria-label', 'Ruota a sinistra');
+  dpadRight.setAttribute('aria-label', 'Ruota a destra');
+
+  const setupDpadKey = (btn, key) => {
+    const press = e => {
+      e.preventDefault();
+      moveKeys.add(key);
+      btn.classList.add('active');
+    };
+    const release = e => {
+      e.preventDefault();
+      moveKeys.delete(key);
+      btn.classList.remove('active');
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+  };
+  setupDpadKey(dpadUp, 'w');
+  setupDpadKey(dpadDown, 's');
+  setupDpadKey(dpadLeft, 'a');
+  setupDpadKey(dpadRight, 'd');
+  dpad.append(dpadUp, dpadDown, dpadLeft, dpadRight);
+
+  ui.append(title, prev, next, info, tools, dpad);
 
   function normAngle(a) {
     while (a > Math.PI) a -= Math.PI * 2;
@@ -1135,7 +1169,8 @@ export function createSpaceLobby({
     const rulesB = h('button', 'btn rulesBtn', '📖 Regole');
     rulesB.onclick = () => { sfx.click(); showRulesModal(g); };
 
-    const play = h('button', 'btn pri bigEnterBtn', '🚪 Avvicinati, Apri Porta ed Entra ▸');
+    const play = h('button', 'btn pri bigEnterBtn');
+    play.innerHTML = '<span class="enterBtnFull">🚪 Avvicinati, Apri Porta ed Entra ▸</span><span class="enterBtnMobile">🚀 Entra nel Gioco 🚪</span>';
     play.style.cssText = `font-weight:900;padding:12px 22px;background:linear-gradient(135deg, ${a}, #2563eb);border:2px solid #ffffff;box-shadow:0 0 22px ${a}88;`;
     play.onclick = () => triggerPortalEntry(sel);
 
