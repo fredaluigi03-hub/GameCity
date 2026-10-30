@@ -211,7 +211,7 @@ function goLow() {
 export function newStage(o = {}) {
   if (S) disposeStage();
   tweens.length = 0;
-  const {c1 = PAL.gold, c2 = '#7b6cd8', bg = PAL.ink, cam = [0, 2.4, 10], look = [0, 1.8, 0], floor = true} = o;
+  const {c1 = PAL.gold, c2 = '#7b6cd8', bg = PAL.ink, cam = [0, 2.4, 10], look = [0, 1.8, 0], floor = true, studio = true} = o;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(bg).lerp(new THREE.Color(PAL.ink), .5);
   scene.fog = new THREE.FogExp2(scene.background, .024);
@@ -243,7 +243,7 @@ export function newStage(o = {}) {
     };
     S.upd.push(f);
   };
-  buildStudio(S, floor);
+  buildStudio(S, floor, studio);
   pass.scene = scene; pass.camera = camera;
   resize();
   return S;
@@ -305,7 +305,7 @@ function ledTexture(S) {
   return {tex, draw};
 }
 
-function buildStudio(S, withFloor) {
+function buildStudio(S, withFloor, withStudio = true) {
   const {scene} = S;
   const ac1 = '#' + S.c1.getHexString(), ac2 = '#' + S.c2.getHexString();
   scene.add(new THREE.AmbientLight('#1b2142', .15));
@@ -318,6 +318,15 @@ function buildStudio(S, withFloor) {
   const rim1 = new THREE.PointLight(S.c1, 25, 30); rim1.position.set(-8, 4, -4);
   const rim2 = new THREE.PointLight(S.c2, 25, 30); rim2.position.set(8, 4, -4);
   scene.add(rim1, rim2);
+
+  if (!withStudio) {
+    S.on(dt => {
+      S.flash = Math.max(0, S.flash - dt * 2.5);
+      rim1.color.copy(S.c1).lerp(S.flashC, S.flash * .6);
+      rim2.color.copy(S.c2).lerp(S.flashC, S.flash * .6);
+    });
+    return;
+  }
 
   if (withFloor) {
     const fc = document.createElement('canvas'); fc.width = fc.height = 512; const fx = fc.getContext('2d');
