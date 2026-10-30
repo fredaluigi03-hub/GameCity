@@ -604,6 +604,21 @@ export default {
     camWide();
     await host.say(`Ecco i protagonisti di stasera: ${P.map(p => p.name).join(', ')}. In bocca al lupo a tutti!`, {mood: 'happy', gesture: 'point', to: P[0]});
 
+    if (ctx.cfg?.finalOnly) {
+      const champ = P.find(p => !p.bot) || P[0];
+      for (const p of P) {
+        if (p !== champ) {
+          p.alive = false;
+          out.push(p);
+          p.data.state = 'out';
+          p.data.man?.setMood('neutral');
+        }
+      }
+      champ.score = 180000;
+      jackpot = 180000;
+      hud();
+      await host.say(`Benvenuti direttamente alla fase decisiva de L'Eredità: La Ghigliottina con ${champ.name}! In palio ci sono ${eur(jackpot)}.`, {mood: 'happy', gesture: 'celebrate', to: champ});
+    } else {
     let qualStep = 1;
 
     // GIOCO 1: C'È O NON C'È (se concorrenti > 3)
@@ -817,6 +832,7 @@ export default {
         await host.say(`Tempo scaduto! La mano vincente è di ${finalist.name}: è lei a volare alla Ghigliottina!`, {mood: 'surprised', gesture: 'point', to: finalist});
         await eliminate(other, `${other.name}, si ferma a un soffio dal sogno della Ghigliottina.`);
       }
+    }
     }
 
     // ---------- LA GHIGLIOTTINA (1 solo finalista) ----------

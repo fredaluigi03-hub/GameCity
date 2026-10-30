@@ -743,9 +743,19 @@ export default {
     }
 
     // ================= SHOW =================
-    await host.say(`Ciao a tutti e benvenuti a Reazione a Catena! Da una parte i campioni Blu: ${names(T[0])}. Dall’altra gli sfidanti Arancio: ${names(T[1])}. Pronti a fare catena?`, {mood: 'happy', gesture: 'wave'});
-    await g1(); await g2(); await g3(); await g4(); await g5(); await g6(); await g7();
-    const w = await g8();
+    let w;
+    if (ctx.cfg?.finalOnly) {
+      w = T.find(t => t.m.some(p => !p.bot)) || T[0];
+      w.pot = 120000;
+      w.m.forEach(p => { p.score = 120000; });
+      ctx.scoreboard();
+      w.board.set(boardLines(w));
+      await host.say(`Benvenuti direttamente al gioco finale di Reazione a Catena: L'Ultima Catena per i ${w.name}! In palio ${eur(w.pot)}!`, {mood: 'happy', gesture: 'celebrate'});
+    } else {
+      await host.say(`Ciao a tutti e benvenuti a Reazione a Catena! Da una parte i campioni Blu: ${names(T[0])}. Dall’altra gli sfidanti Arancio: ${names(T[1])}. Pronti a fare catena?`, {mood: 'happy', gesture: 'wave'});
+      await g1(); await g2(); await g3(); await g4(); await g5(); await g6(); await g7();
+      w = await g8();
+    }
     const fin = await g9(w);
     host.react('outro');
     const lose = other(w);

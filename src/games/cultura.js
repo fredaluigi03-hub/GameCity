@@ -571,8 +571,9 @@ export default {
       await toSeat(p); host.turnTo(p);
       shot('host');
       await host.say(fill(pick1(LINES.seat), {name: p.name}), {mood: 'happy', gesture: 'wave', to: p});
-      let won = 0, res = '';
-      for (let k = 0; k < 15; k++) {
+      let won = ctx.cfg?.finalOnly ? LADDER[9] : 0, res = '';
+      const startK = ctx.cfg?.finalOnly ? 10 : 0;
+      for (let k = startK; k < 15; k++) {
         if (p.retired || !p.alive) break;
         const qRef = { q: drawQuestion(k), k };
         hud(p, k);
@@ -634,6 +635,11 @@ export default {
     shot('wide', {snap: true});
     ctx.dock(card('<div class="meta"><span>Cultura Generale</span><span></span></div><h2>Quindici domande per il milione.</h2>', 'card msg'));
     await host.say(pick1(LINES.intro), {mood: 'happy', gesture: 'wave'});
+    if (ctx.cfg?.finalOnly) {
+      const seat = ctx.players.find(p => !p.bot) || ctx.players[0];
+      await host.say(`Benvenuto direttamente alla Scalata Finale per il Milione, ${seat.name}! Sei alla domanda 11 per ${eur(LADDER[10])}, con la soglia di ${eur(LADDER[9])} già garantita e tutti i 4 aiuti a disposizione!`, {mood: 'happy', gesture: 'celebrate', to: seat});
+      await hotSeat(seat);
+    } else {
     let queue = [...ctx.players];
     while (queue.length) {
       let seat;
@@ -643,6 +649,7 @@ export default {
       } else seat = await ffRound(queue);
       queue = queue.filter(c => c !== seat);
       await hotSeat(seat);
+    }
     }
     shot('wide');
     await host.react('outro');

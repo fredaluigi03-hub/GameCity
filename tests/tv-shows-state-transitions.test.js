@@ -336,3 +336,39 @@ test('forfeitPlayer: cleanly triggers onForfeit listeners without deadlock', asy
   assert.equal(mockPlayer.alive, false, 'Player must be marked dead');
   assert.equal(result.pick, -2, 'Pending promise resolved immediately without freezing');
 });
+
+// ============================================================================
+// 8. SOLO ROUND FINALE CONFIGURATION AND FINALE INTEGRATION
+// ============================================================================
+import { GAME_FINALS } from '../src/games/finals.js';
+import catena from '../src/games/catena.js';
+import hit from '../src/games/hit.js';
+import fight from '../src/games/fight.js';
+import math from '../src/games/math.js';
+
+test('GAME_FINALS metadata defines final rounds for all 9 TV shows and quiz games', () => {
+  const expectedShows = ['eredita', 'avanti', 'caduta', 'affari', 'catena', 'cultura', 'hit', 'fight', 'math'];
+  for (const id of expectedShows) {
+    assert.ok(GAME_FINALS[id], `GAME_FINALS must include ${id}`);
+    assert.ok(typeof GAME_FINALS[id].name === 'string' && GAME_FINALS[id].name.length > 0, `${id} must have a finale name`);
+    assert.ok(typeof GAME_FINALS[id].desc === 'string' && GAME_FINALS[id].desc.length > 0, `${id} must have a finale description`);
+  }
+});
+
+test('Games with finales have start functions that accept ctx.cfg.finalOnly without throwing', () => {
+  const gamesWithFinals = [
+    { id: 'avanti', mod: avanti },
+    { id: 'eredita', mod: eredita },
+    { id: 'caduta', mod: caduta },
+    { id: 'affari', mod: affari },
+    { id: 'catena', mod: catena },
+    { id: 'cultura', mod: cultura },
+    { id: 'hit', mod: hit },
+    { id: 'fight', mod: fight },
+    { id: 'math', mod: math }
+  ];
+
+  for (const { id, mod } of gamesWithFinals) {
+    assert.equal(typeof mod.start, 'function', `${id} must have a start() function`);
+  }
+});

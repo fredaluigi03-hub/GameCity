@@ -433,7 +433,12 @@ export default {
       if (!P.some(p => !p.bot)) setTimeout(() => { if (!ctx.dead) { sfx.click(); res(); } }, 2000);
     }));
     const vs = (x, y, t) => `${t}: <b>${esc(x.name)}</b> contro <b>${esc(y.name)}</b>`;
-    if (P.length === 2) await duel(P[0], P[1], 'Incontro');
+    if (ctx.cfg?.finalOnly) {
+      const f1 = P.find(p => !p.bot) || P[0];
+      const f2 = P.find(p => p !== f1) || P[1] || P[0];
+      await host.say(`Benvenuti direttamente alla Gran Finale di The Floor! ${f1.name} contro ${f2.name} per il titolo di campione!`, {mood: 'happy', gesture: 'celebrate'});
+      await duel(f1, f2, 'Gran Finale');
+    } else if (P.length === 2) await duel(P[0], P[1], 'Incontro');
     else if (P.length === 3) { // girone: tutti contro tutti
       const s = shuffle(P), g = [[s[0], s[1]], [s[0], s[2]], [s[1], s[2]]];
       await tabellone('Girone all’italiana', g.map(([x, y], i) => vs(x, y, `Incontro ${i + 1}`)));

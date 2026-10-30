@@ -399,6 +399,9 @@ export default {
     }
 
     // ================= 1. PLAYLIST =================
+    let plWin = null;
+    let bidWin = null;
+    if (!ctx.cfg?.finalOnly) {
     shot('wide'); scr('HIT', 'In diretta con l’orchestra');
     await host.react('intro', ctx.players[0]);
     await say(`Stasera si sfidano ${sides[0].name} e ${sides[1].name}. Si parte con la Playlist: chi indovina più titoli vince il primo jolly!`, {mood: 'happy', gesture: 'wave'});
@@ -508,9 +511,16 @@ export default {
       if (res) { ctx.addScore(res.p, v); await host.react('right', res.p, {value: eur(v)}); } else await host.react('wrong');
       hud(); lightSide(null); await reveal(item); rotate();
     }
+    } else {
+      const preferred = sides.find(s => s.members.some(m => !m.bot)) || sides[0];
+      preferred.jolly = 1;
+      await say(`Benvenuti direttamente al gran finale di Name That Tune: il leggendario Sette per Trenta! Sette brani dell'orchestra in trenta secondi per vincere il jackpot!`, {mood: 'happy', gesture: 'celebrate'});
+    }
 
     // ================= 4. SETTE PER TRENTA =================
-    const lead = money(sides[0]) === money(sides[1]) ? (bidWin || plWin || sides[0]) : sides[money(sides[0]) > money(sides[1]) ? 0 : 1];
+    const lead = ctx.cfg?.finalOnly
+      ? (sides.find(s => s.members.some(m => !m.bot)) || sides[0])
+      : (money(sides[0]) === money(sides[1]) ? (bidWin || plWin || sides[0]) : sides[money(sides[0]) > money(sides[1]) ? 0 : 1]);
     const mp = lead.members.find(m => !m.bot) || who(lead);
     shot('screen'); scr('SETTE PER TRENTA', `Gioca ${lead.name}`); lightSide(lead);
     await say(`Gran finale: Sette per Trenta! ${mp.name}, sette brani in trenta secondi. Il tempo corre solo quando suona l’orchestra. Un errore e si chiude!`, {mood: 'happy', gesture: 'point', to: mp.data.obj});

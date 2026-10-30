@@ -408,6 +408,22 @@ export default {
     if (ctx.humans.length) await choose(intro, [{v: 1, html: 'Si comincia'}]);
 
     let carry = null;
+    if (ctx.cfg?.finalOnly) {
+      const human = P.find(p => !p.bot) || P[0];
+      const rival = P.find(p => p !== human) || P[1] || P[0];
+      P.filter(p => p !== human && p !== rival).forEach(p => {
+        p.alive = false;
+        p.data.out = ++outN;
+        if (p.data.obj) p.data.obj.visible = false;
+      });
+      cells.forEach((c, idx) => {
+        const owner = idx < Math.floor(cells.length / 2) ? human : rival;
+        c.owner = owner;
+        c.m.material.color.set(owner.color);
+      });
+      hud();
+      await host.say(`Benvenuti direttamente alla Sfida Finale per il Floor! ${human.name} e ${rival.name} si dividono il pavimento al 50%. Chi vince il duello conquista tutto!`, {mood: 'happy', gesture: 'celebrate'});
+    }
     while (alive().length > 1) {
       const quick = !alive().some(p => !p.bot);
       const C = carry ? carry.p : await randomPick(quick);

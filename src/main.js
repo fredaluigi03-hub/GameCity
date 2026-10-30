@@ -16,6 +16,8 @@ import bingo from './boardgames/bingo.js';
 import ouija from './boardgames/ouija.js';
 import forza4 from './boardgames/forza4.js';
 
+import {GAME_FINALS} from './games/finals.js';
+
 const GAMES = [eredita, avanti, caduta, affari, catena, fight, hit, math, cultura, monopoly, tombola, bingo, ouija, forza4];
 const ui = document.getElementById('ui');
 const store = {get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }};
@@ -125,7 +127,7 @@ function diffRow(label, value, onPick) {
   paint(); r.append(s); return r;
 }
 
-// player setup: count, CPU fill, names, difficulty. Calls launch(g, cfg) with cfg = {seats:[{name,color,bot}], cpu, cpuDiff, qDiff}
+// player setup: count, CPU fill, names, difficulty. Calls launch(g, cfg) with cfg = {seats:[{name,color,bot}], cpu, cpuDiff, qDiff, finalOnly}
 function setup(g) {
   const P = {min: 1, max: 4, def: 1, ...g.players};
   delete P.cpuRequiredBelow; // eliminate rigid lockout so users can choose freely
@@ -164,11 +166,41 @@ function setup(g) {
   const tokenPool = g.tokens || MONO_TOKENS;
   const seatTokens = new Map();
 
+  const finalInfo = GAME_FINALS[g.id];
+  let finalOnly = false;
+  let modeRow = null;
+  if (finalInfo) {
+    modeRow = h('div', 'diffRow');
+    modeRow.style.cssText = 'flex-direction:column;align-items:stretch;gap:6px;';
+    const topMode = h('div', 'row');
+    topMode.style.cssText = 'justify-content:space-between;width:100%;align-items:center;';
+    topMode.innerHTML = '<span class="lbl" style="font-weight:700;">Modalità di Gioco</span>';
+    const modeSeg = h('div', 'seg');
+    const bFull = h('button', 'segb on', '🌟 Partita Completa');
+    const bFinal = h('button', 'segb', `🏆 Solo Round Finale (${finalInfo.name})`);
+    const descMode = h('p', 'sub', '');
+    descMode.style.cssText = 'font-size:0.8rem;line-height:1.45;color:#cbd5e1;margin:2px 0 6px;padding:6px 10px;background:rgba(255,255,255,0.05);border-radius:8px;';
+    const updateModeUI = () => {
+      bFull.className = 'segb' + (!finalOnly ? ' on' : '');
+      bFinal.className = 'segb' + (finalOnly ? ' on' : '');
+      bFinal.style.cssText = finalOnly ? 'background:linear-gradient(135deg, rgba(234,179,8,0.3), rgba(245,158,11,0.5));border-color:#fbbf24;color:#fef08a;font-weight:700;' : '';
+      descMode.innerHTML = finalOnly
+        ? `<b style="color:#fbbf24">🏆 Accesso Diretto al Finale:</b> Salta le qualificazioni preliminari e gioca subito <b>${esc(finalInfo.name)}</b>. ${esc(finalInfo.desc)}.`
+        : `<b>🌟 Partita Regolare:</b> Gioca l'intera scaletta televisiva dallo studio iniziale fino alla proclamazione del vincitore.`;
+    };
+    bFull.onclick = () => { finalOnly = false; updateModeUI(); };
+    bFinal.onclick = () => { finalOnly = true; updateModeUI(); };
+    modeSeg.append(bFull, bFinal);
+    topMode.append(modeSeg);
+    updateModeUI();
+    modeRow.append(topMode, descMode);
+  }
+
   const seats = h('div', 'seats');
   const rosterNote = h('p', 'sub rosterNote'); rosterNote.hidden = true;
   const row = h('div', 'row'), back = h('button', 'btn', 'Indietro'), rulesB = h('button', 'btn rulesBtn', '📖 Regole'), go = h('button', 'btn pri', 'Inizia lo show');
   rulesB.onclick = () => showRulesModal(g);
-  row.append(back, rulesB, go); c.append(seg, sw, rosterNote, cdRow, qdRow, spRow, seats, row);
+  row.append(back, rulesB, go); c.append(seg, sw, rosterNote, cdRow, qdRow, spRow, ...(modeRow ? [modeRow] : []), seats, row);
   const swIn = sw.querySelector('input');
   const swLbl = sw.querySelector('.lbl');
 
@@ -263,7 +295,7 @@ function setup(g) {
     const humanNames = finalSeats.filter(s => !s.bot).map(s => s.name);
     if (humanNames.length) store.set('names', humanNames);
     store.set('cpu', cpu); store.set('count_' + g.id, count); store.set('cpu_diff', cpuDiff); store.set('q_diff', qDiff);
-    const cfg = {seats: finalSeats, cpu: finalSeats.some(s => s.bot), cpuDiff, qDiff: QD[qDiff]};
+    const cfg = {seats: finalSeats, cpu: finalSeats.some(s => s.bot), cpuDiff, qDiff: QD[qDiff], finalOnly};
     ov.remove(); launch(g, cfg);
   };
   render(); go.focus();

@@ -494,6 +494,18 @@ export default {
       sfx.drum(); S.flashWith(PAL.gold); hud(st);
       await say('mine', {n: st.mine.n, reg: st.mine.reg, name: p.name}, {to: p, gesture: 'point', mood: 'happy'});
 
+      if (ctx.cfg?.finalOnly) {
+        // Direct jump to final 2-box standoff: reveal 18 boxes on the board
+        const others = sealedOthers();
+        const otherToKeep = others[0];
+        const toOpen = others.slice(1);
+        for (const b of toOpen) {
+          b.open = true;
+          setCell(b.c.id, false);
+          b.tx.set(cellName(b.c.id));
+        }
+        hud(st);
+      } else {
       for (let r = 0; r < ROUNDS.length && st.deal === null; r++) {
         st.round = r + 1; hud(st);
         for (let k = ROUNDS[r]; k > 0; k--) {
@@ -503,6 +515,7 @@ export default {
           await openPacco(b, st);
         }
         if (r < ROUNDS.length - 1) await call(st, r + 1);
+      }
       }
 
       let w, how, win;

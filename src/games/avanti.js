@@ -643,6 +643,16 @@ export default {
 
     // ---------- show ----------
     setLbl(); hud(); cam('wide');
+    if (ctx.cfg?.finalOnly) {
+      const p = P.find(x => !x.bot) || P[0];
+      champ = p;
+      p.score = 150000;
+      ctx.setScore(p, 150000);
+      msg('Avanti un altro! · Gioco Finale dei 21', `${esc(p.name)} scende in campo con ${eur(p.score)} per il Gioco Finale dei 21 al contrario!`);
+      await talk('final', p);
+      await finalGame(p);
+      return;
+    }
     msg('Avanti un altro!', `${NQ} concorrent${NQ === 1 ? 'e' : 'i'} in fila${NQ > 1 && NQ < 5 ? ` · ${Math.ceil(5 / NQ)} puntate` : ''}. Conquista la sedia del campione e gioca il finale.`);
     await talk('intro');
     // poche persone = più puntate: chi è uscito rientra in fila, il campione resta seduto

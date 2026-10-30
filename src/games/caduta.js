@@ -538,6 +538,40 @@ export default {
       center.led(ctx.accent.a); hud();
     }
     const log = [];
+    if (ctx.cfg?.finalOnly) {
+      const lead = P.find(p => !p.bot) || P[0];
+      seat(lead);
+      pot = 100000;
+      for (const p of P) {
+        if (p !== lead) {
+          p.alive = false;
+          p.data.lives = 0;
+          if (p.data.obj) p.data.obj.visible = false;
+        }
+      }
+      wide();
+      await talk(`Benvenuti alla finale di Caduta Libera! Al centro il nostro campione, ${lead.name}, pronto per il gran finale da ${eur(pot)}!`, {mood: 'happy', gesture: 'celebrate', to: lead});
+      const c = lead; watch = !c.bot; wide();
+      const prize0 = pot;
+      await talk(`${c.name}, sei in finale! In palio ${eur(prize0)}. Le 10 botole o i 10 passi?`, {mood: 'happy', gesture: 'celebrate', to: c});
+      await hot(c);
+      const kind = await choose(c, {kicker: `Finale · ${eur(prize0)}`, title: 'Scegli il gioco finale', one: true,
+        items: [{label: 'Le 10 botole: una domanda, 10 risposte, 90 secondi', value: 'b', tag: '10'}, {label: 'I 10 passi: 10 domande in 3 minuti, puoi passare', value: 'p', tag: '⏱️'}], bot: () => pickR(['b', 'p'])});
+      const won = kind === 'b' ? await botole(c, prize0) : await passi(c, prize0);
+      pot = won; c.data.won = won; hud();
+      log.push(won ? `${c.name} supera la finale (${kind === 'b' ? 'Le 10 botole' : 'I 10 passi'}): ${eur(won)}.` : `${c.name} cade in finale: il montepremi resta in studio.`);
+      if (won) { S.burst(PAL.goldHi, 220, 7); crowd(.3, 3.5); c.data.obj.celebrate(3000); await host.react('win', c, {value: eur(won)}); }
+      else await host.react('lose', c);
+      host.react('outro', lead);
+      ctx.dock();
+      ctx.finish({
+        win: won > 0 && !c.bot,
+        title: won > 0 ? `${c.name} vince ${eur(won)}!` : 'CADUTA LIBERA!',
+        lines: log,
+        ranking: P.map(p => ({player: p, score: p.data.won || 0}))
+      });
+      return;
+    }
     for (; mi < M;) {
       const lead = P[mi++ % N];
       seat(lead); wide(mi > 1);
