@@ -621,6 +621,46 @@ form.in .btn { flex: none; padding: 0 22px; }
 @keyframes sh { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 .hearts { letter-spacing: 0.2em; color: var(--bad); }
 
+/* ---- Cosmic Space Hub 3D UI ---- */
+.droneBubble3D {
+  position: fixed;
+  top: 110px;
+  right: 32px;
+  max-width: 340px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 18px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 20px rgba(56, 189, 248, 0.35);
+  pointer-events: none;
+  z-index: 40;
+  transition: opacity 0.35s ease, transform 0.35s var(--spring);
+}
+.droneBubble3D::before {
+  content: "🤖 GEMINI COMPANION";
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+.bigEnterBtn {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s var(--spring), box-shadow 0.25s ease;
+}
+.bigEnterBtn:hover {
+  transform: translateY(-2px) scale(1.04);
+}
+.bigEnterBtn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
 /* ==========================================================================
    IMMERSIVE BOARD GAMES (Monopoly, Tombola Napoletana, Bingo, Ouija)
    ========================================================================== */
@@ -1343,6 +1383,138 @@ form.in .btn { flex: none; padding: 0 22px; }
   gap: 6px;
   z-index: 15;
   pointer-events: auto;
+}
+
+/* Turn Announcement Banner & Live Monopoly Popups */
+.turnBanner3D {
+  position: absolute;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 22px;
+  border-radius: 14px;
+  background: rgba(10, 16, 30, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid var(--turnColor, #38bdf8);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 0 20px rgba(56, 189, 248, 0.25);
+  z-index: 20;
+  pointer-events: none;
+  animation: slideDownBanner 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+}
+@keyframes slideDownBanner {
+  from { opacity: 0; transform: translate(-50%, -14px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.turnBanner3D.humanTurn {
+  border-color: #38bdf8;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 0 24px rgba(56, 189, 248, 0.45);
+}
+.turnBanner3D.cpuTurn {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+}
+.tbBadge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--turnColor, #38bdf8);
+}
+.tbMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tbIcon {
+  font-size: 1.3rem;
+}
+.tbName {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.tbCash {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #4ade80;
+  margin-left: 4px;
+}
+.tbSub {
+  font-size: 0.74rem;
+  color: #cbd5e1;
+}
+
+.activeTurnTag {
+  background: var(--pc, #38bdf8);
+  color: #030712;
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 99px;
+  letter-spacing: 0.06em;
+  animation: pulseTag 1.5s infinite;
+}
+@keyframes pulseTag {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.05); }
+}
+
+/* Rent Announcement Popup */
+.rentPopup3D {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 2px solid #ef4444;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 30px rgba(239, 68, 68, 0.45);
+  border-radius: 18px;
+  padding: 18px 28px;
+  text-align: center;
+  z-index: 35;
+  pointer-events: none;
+  animation: popInBounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popInBounce {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* 3D Card Drawn Popup */
+.cardPopup3D {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, 90vw);
+  background: #0f172a;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+  z-index: 35;
+  pointer-events: none;
+  animation: popInBounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.cardPopupHeader {
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 800;
+  color: #fff;
+}
+.cardPopupBody {
+  padding: 16px;
+  text-align: center;
 }
 
 /* Custom enhancements for 3D Boardgames Sidebars */

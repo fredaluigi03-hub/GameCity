@@ -1,5 +1,6 @@
 import {THREE, newStage, tween, raycast, label3d, ease, PAL, tune} from './engine.js';
 import {h, sleep, sfx, askMC, getGameSpeed, setGameSpeed} from './ui.js';
+import {createSpaceLobby} from './spaceHub.js';
 import eredita from './games/eredita.js';
 import avanti from './games/avanti.js';
 import caduta from './games/caduta.js';
@@ -47,129 +48,22 @@ function muteBtn() {
 }
 
 function lobby() {
-  teardown(); ui.replaceChildren(); setAccent();
-  const S = newStage({c1: '#38bdf8', c2: '#2563eb', cam: [0, 2.6, 15], look: [0, 2.4, 0]});
-  S.par = 1.2;
-  S.noOrbit = true;
-  const N = GAMES.length, R = 8.5, step = Math.PI * 2 / N;
-  const ring = new THREE.Group(); ring.position.y = 2.6; S.add(ring);
-  const frameM = new THREE.MeshStandardMaterial({color: '#182236', metalness: .75, roughness: .35});
-  const frameG = new THREE.BoxGeometry(3.3, 4.3, .1);
-  const cards = GAMES.map((g, i) => {
-    const {a, b} = accent(g), a0 = i * step, grp = new THREE.Group();
-    grp.position.set(Math.sin(a0) * R, 0, Math.cos(a0) * R); grp.rotation.y = a0; grp.userData.id = i;
-    const frame = new THREE.Mesh(frameG, frameM); frame.position.z = -.07;
-    const face = label3d([{t: String(i + 1).padStart(2, '0'), fs: .1, color: a}, {t: g.name, fs: .19}, {t: g.tag.toUpperCase(), fs: .055, color: '#f8fafc', font: 'Outfit'}],
-      {w: 3.2, h: 4.2, px: 160, accent: a, border: 'rgba(255,255,255,.2)'});
-    const glowStrip = new THREE.Mesh(new THREE.PlaneGeometry(2.2, .05), new THREE.MeshBasicMaterial({color: b, toneMapped: false})); glowStrip.position.set(0, -1.75, .01);
-    grp.add(frame, face, glowStrip); ring.add(grp);
-    S.on((dt, t) => { grp.position.y = Math.sin(t * 1.1 + i) * .1; });
-    return grp;
+  teardown();
+  ui.replaceChildren();
+  setAccent();
+  const space = createSpaceLobby({
+    GAMES,
+    best,
+    accent,
+    setAccent,
+    intro,
+    setup,
+    showRulesModal,
+    speedBtn,
+    muteBtn,
+    ui
   });
-  let sel = 0, ang = 0;
-  const title = h('div', 'lobbyTitle', '<p class="kicker">In onda stasera</p><h1 class="disp">STUDIO TV</h1><p>Gli show della prima serata e grandi giochi da tavolo</p>');
-  const prev = h('button', 'arrow l', '‹'); prev.setAttribute('aria-label', 'Show precedente');
-  const next = h('button', 'arrow r', '›'); next.setAttribute('aria-label', 'Show successivo');
-  const info = h('div', 'dock');
-  const tools = h('div', 'tools'); tools.append(speedBtn(), muteBtn());
-  ui.append(title, prev, next, info, tools);
-
-  function show() {
-    const g = GAMES[sel], b = best(g.id), {a} = accent(g);
-    setAccent(a, accent(g).b);
-    info.innerHTML = '';
-    const c = h('div', 'card info');
-    const pl = g.players ? ` · ${g.players.min ?? 1}–${g.players.max ?? 4} giocatori` : '';
-    c.innerHTML = `<div><p class="kicker" style="color:${a}">${String(sel + 1).padStart(2, '0')} · ${esc(g.tag)}</p><h3 class="disp">${esc(g.name)}</h3><p>${esc(g.desc)}${pl}${b ? ` · Record <b class="gold">${b.toLocaleString('it-IT')}</b>` : ''}</p></div>`;
-    const btnWrap = h('div', 'row', '');
-    btnWrap.style.cssText = 'margin:0;gap:8px;flex-wrap:wrap;';
-    const rulesB = h('button', 'btn rulesBtn', '📖 Regole');
-    rulesB.onclick = () => showRulesModal(g);
-    const play = h('button', 'btn pri', 'Entra in studio');
-    play.onclick = () => intro(g);
-    btnWrap.append(rulesB, play);
-    c.append(btnWrap); info.append(c);
-    cards.forEach((cd, i) => tween(cd.scale, [i === sel ? 1.12 : .9, i === sel ? 1.12 : .9, 1], .5, ease.overshoot));
-    S.flashWith(a);
-  }
-  function go(d) {
-    sel = (sel + d + N) % N; ang -= d * step; sfx.whoosh();
-    tween(ring.rotation, {y: ang}, .8, ease.inOutBack); show();
-  }
-  prev.onclick = () => go(-1); next.onclick = () => go(1);
-  const key = e => {
-    if (ui.querySelector('.ov')) return;
-    const k = e.key.toLowerCase();
-    if (e.key === 'ArrowLeft' || k === 'a') go(-1);
-    else if (e.key === 'ArrowRight' || k === 'd') go(1);
-    else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') intro(GAMES[sel]);
-  };
-  let dragging = false, startX = 0, startAng = 0, dragMoved = 0, lastWheel = 0;
-  const down = e => {
-    if (e.target.id !== 'gl' || ui.querySelector('.ov')) return;
-    dragging = true;
-    startX = e.clientX;
-    startAng = ring.rotation.y;
-    dragMoved = 0;
-    document.body.style.cursor = 'grabbing';
-  };
-  const move = e => {
-    if (dragging) {
-      const dx = e.clientX - startX;
-      dragMoved = Math.max(dragMoved, Math.abs(dx));
-      ring.rotation.y = startAng + dx * 0.0045;
-      return;
-    }
-    if (e.target.id === 'gl') document.body.style.cursor = raycast(cards, e) ? 'pointer' : 'grab';
-  };
-  const up = e => {
-    if (!dragging) return;
-    dragging = false;
-    document.body.style.cursor = '';
-    if (dragMoved > 10) {
-      // Snap to nearest card based on ring.rotation.y
-      const rawSteps = Math.round(-ring.rotation.y / step);
-      sel = ((rawSteps % N) + N) % N;
-      ang = -rawSteps * step;
-      sfx.whoosh();
-      tween(ring.rotation, {y: ang}, .55, ease.out);
-      show();
-    } else if (e.target.id === 'gl' && !ui.querySelector('.ov')) {
-      const o = raycast(cards, e);
-      if (!o) return;
-      const i = o.userData.id;
-      if (i === sel) intro(GAMES[i]);
-      else {
-        let d = i - sel;
-        if (d > N / 2) d -= N;
-        if (d < -N / 2) d += N;
-        go(d);
-      }
-    }
-  };
-  const wheel = e => {
-    if (ui.querySelector('.ov')) return;
-    const now = performance.now();
-    if (now - lastWheel < 220) return;
-    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-    if (Math.abs(delta) < 8) return;
-    lastWheel = now;
-    go(delta > 0 ? 1 : -1);
-  };
-  addEventListener('keydown', key);
-  addEventListener('pointerdown', down);
-  addEventListener('pointermove', move);
-  addEventListener('pointerup', up);
-  addEventListener('wheel', wheel, {passive: true});
-  teardown = () => {
-    removeEventListener('keydown', key);
-    removeEventListener('pointerdown', down);
-    removeEventListener('pointermove', move);
-    removeEventListener('pointerup', up);
-    removeEventListener('wheel', wheel);
-    document.body.style.cursor = '';
-  };
-  show();
+  teardown = space.teardown;
 }
 
 function overlay(inner) {
@@ -210,7 +104,7 @@ function intro(g) {
   c.classList.add('rulesModalCard');
   const row = h('div', 'row');
   const back = h('button', 'btn', 'Indietro'), go = h('button', 'btn pri', 'Configura Partita ▸');
-  back.onclick = () => ov.remove();
+  back.onclick = () => { ov.remove(); lobby(); };
   go.onclick = () => { sfx.drum(); if (g.players) { ov.remove(); setup(g); } else launch(g); };
   row.append(back, go); c.append(row); go.focus();
 }
@@ -356,7 +250,7 @@ function setup(g) {
     manualBots.clear();
     render();
   };
-  back.onclick = () => ov.remove();
+  back.onclick = () => { ov.remove(); lobby(); };
   go.onclick = () => {
     const tot = total();
     const finalSeats = Array.from({length: tot}, (_, i) => {

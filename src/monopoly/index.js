@@ -878,6 +878,7 @@ export default {
               <span style="font-weight:700;font-size:0.92rem;display:flex;align-items:center;gap:6px">
                 <span style="font-size:1.15rem">${p.token.icon}</span>
                 <span>${esc(p.name)}${p.bot ? ' <small style="color:var(--mut)">CPU</small>' : ''}</span>
+                ${idx === boardState.current ? '<span class="activeTurnTag">► IN GIOCO ORA</span>' : ''}
               </span>
               <b style="color:#4ade80;font-size:0.95rem">${money(p.data.cash)}</b>
             </div>
@@ -1300,47 +1301,97 @@ export default {
       const card = deck.shift();
       const title = kind === 'chance' ? '⚡ IMPREVISTI' : '📦 PROBABILITÀ';
       logMsg(`${player.name} pesca ${title}: «${card.text}»`);
+
+      // Visibile popup della carta sul tavolo
+      const cardOv = h('div', 'cardPopup3D');
+      cardOv.innerHTML = `
+        <div class="cardPopupHeader" style="background:${kind === 'chance' ? '#ea580c' : '#0284c7'}">
+          <span>${title}</span>
+          <span style="font-size:0.75rem">${player.token.icon} ${esc(player.name)}</span>
+        </div>
+        <div class="cardPopupBody">
+          <p style="font-size:1.05rem;line-height:1.45;margin:0 0 10px;font-weight:700">${esc(card.text)}</p>
+          <div style="font-size:0.8rem;color:var(--mut)">Applicazione effetto carta in corso...</div>
+        </div>
+      `;
+      ctx.ui.append(cardOv);
+      setTimeout(() => cardOv.remove(), 3200);
+
       await host.say(`${title} per ${player.name}: «${card.text}»`, { mood: 'surprised' });
 
-      if (card.act === 'cash') {
-        if (card.amount >= 0) {
-          player.data.cash += card.amount;
-          sfx.ok();
-        } else {
-          await chargePlayer(player, -card.amount, null, title);
+      // 1. Incasso o pagamento diretto in denaro
+      if (card.cash !== undefined) {
+        if (card.cash > 0) {
+          player.data.cash += card.cash;
+          sfx.win();
+          logMsg(`💰 ${player.name} incassa ${money(card.cash)}.`);
+        } else if (card.cash < 0) {
+          await chargePlayer(player, -card.cash, null, title);
         }
-      } else if (card.act === 'jailFree') {
-        player.data.jailCard += 1;
+      }
+
+      // 2. Carta Uscita Gratis di Prigione
+      if (card.jailCard) {
+        player.data.jailCard = (player.data.jailCard || 0) + 1;
         sfx.win();
-      } else if (card.act === 'jail') {
+        logMsg(`🏷️ ${player.name} riceve la carta «Uscita Gratis di Prigione»!`);
+      }
+
+      // 3. Vai dritto in Prigione
+      if (card.jail) {
         await sendToJail(player);
-      } else if (card.act === 'each') {
-        for (const other of activePlayers()) {
-          if (other.id === player.id) continue;
-          if (card.amount > 0) {
-            await chargePlayer(other, card.amount, player, title);
-          } else {
-            await chargePlayer(player, -card.amount, other, title);
-          }
+      }
+
+      // 4. Paga a ogni giocatore
+      if (card.payEach) {
+        const others = activePlayers().filter(p => p.id !== player.id);
+        for (const other of others) {
+          await chargePlayer(player, card.payEach, other, title);
         }
-      } else if (card.act === 'repairs') {
-        let fee = 0;
+      }
+
+      // 5. Incassa da ogni giocatore
+      if (card.collectEach) {
+        const others = activePlayers().filter(p => p.id !== player.id);
+        for (const other of others) {
+          await chargePlayer(other, card.collectEach, player, title);
+        }
+      }
+
+      // 6. Riparazioni immobiliari su case e alberghi
+      if (card.repair && Array.isArray(card.repair)) {
+        const [houseFee, hotelFee] = card.repair;
+        let totalFee = 0;
         for (const idx of ownedBy(boardState, player.id)) {
           const lv = boardState.houses[idx] || 0;
-          if (lv === 5) fee += card.hotel;
-          else fee += lv * card.house;
+          if (lv === 5) totalFee += hotelFee;
+          else if (lv > 0) totalFee += lv * houseFee;
         }
-        if (fee > 0) await chargePlayer(player, fee, null, 'Riparazioni edilizie');
-      } else if (card.act === 'move' || card.act === 'back' || card.act === 'nearestRail' || card.act === 'nearestUtil') {
-        const mv = resolveCardMovement(player.data.pos, card);
-        if (card.act === 'back') {
-          await animatePawnSteps3D(player, -card.steps);
-        } else {
-          const steps = (mv.pos - player.data.pos + 40) % 40;
-          await animatePawnSteps3D(player, steps);
+        if (totalFee > 0) {
+          logMsg(`🛠️ ${player.name} deve ${money(totalFee)} per riparazioni immobiliari.`);
+          await chargePlayer(player, totalFee, null, 'Riparazioni immobiliari');
         }
-        await resolveSpace3D(player, diceTotal, mv);
       }
+
+      // 7. Carte Movimento (avanza a casella, indietro 3 passi, stazione o società più vicina)
+      if (card.move !== undefined || card.back !== undefined || card.nearest !== undefined) {
+        const mv = resolveCardMovement(player.data.pos, card);
+        if (mv) {
+          if (card.back) {
+            logMsg(`⬅️ ${player.name} fa ${card.back} passi indietro.`);
+            await animatePawnSteps3D(player, -card.back);
+          } else {
+            const steps = (mv.position - player.data.pos + 40) % 40;
+            await animatePawnSteps3D(player, steps === 0 ? 40 : steps);
+          }
+          player.data.pos = mv.position;
+          syncTokensInstant();
+          selectInspectSpace(player.data.pos);
+          applyCamera(player.data.pos);
+          await resolveSpace3D(player, diceTotal, mv);
+        }
+      }
+
       syncScores();
       renderLeftPanel();
     }
@@ -1352,7 +1403,7 @@ export default {
       selectInspectSpace(idx);
 
       if (space.type === 'go' || space.type === 'jail' || space.type === 'parking') return;
-      if (space.type === 'goToJail') {
+      if (space.type === 'gotojail' || space.type === 'goToJail') {
         await sendToJail(player);
         return;
       }
@@ -1376,11 +1427,22 @@ export default {
           await buyOrAuction(player, idx);
         } else if (ownerId !== player.id && !boardState.mortgages.has(idx)) {
           const owner = P[ownerId];
-          const rent = rentDue(boardState, idx, diceTotal, {
-            railMultiplier: specialMove?.railMultiplier || 1,
-            utilityMultiplier: specialMove?.utilityMultiplier || null
-          });
+          const rent = rentDue(boardState, idx, diceTotal, specialMove ? {
+            railMultiplier: specialMove.rentMultiplier || 1,
+            utilityMultiplier: specialMove.rentMultiplier || null
+          } : 1);
           if (rent > 0) {
+            // Popup visibile ed evidente per l'affitto
+            const rentPopup = h('div', 'rentPopup3D');
+            rentPopup.innerHTML = `
+              <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.12em;color:#f87171">🏠 AFFITTO DA PAGARE</div>
+              <div style="font-size:1.15rem;font-weight:900;margin:4px 0">${esc(dispName)}</div>
+              <div style="font-size:0.85rem">Proprietà di <b style="color:${owner.color}">${esc(owner.name)}</b></div>
+              <div style="font-size:1.4rem;font-weight:900;color:#f87171;margin-top:6px">${money(rent)}</div>
+            `;
+            ctx.ui.append(rentPopup);
+            setTimeout(() => rentPopup.remove(), 2600);
+
             await chargePlayer(player, rent, owner, `Affitto su ${dispName}`);
           }
         }
@@ -1402,20 +1464,65 @@ export default {
       }
     }
 
+    // Handle retire hook
+    ctx.onPlayerRetired = async p => {
+      p.data.bankrupt = true;
+      p.alive = false;
+      ownedBy(boardState, p.id).forEach(i => {
+        boardState.houses[i] = 0;
+        boardState.owners[i] = null;
+        boardState.mortgages.delete(i);
+      });
+      sync3DBoardBuildings();
+      syncTokensInstant();
+      logMsg(`⚐ ${p.name} si è ritirato dal tavolo.`);
+      renderLeftPanel();
+    };
+
+    function updateTurnBanner(player) {
+      let b = document.getElementById('turnBanner3D');
+      if (!b) {
+        b = h('div', 'turnBanner3D');
+        b.id = 'turnBanner3D';
+        ctx.ui.append(b);
+      }
+      const isHuman = !player.bot;
+      b.className = `turnBanner3D ${isHuman ? 'humanTurn' : 'cpuTurn'}`;
+      b.style.setProperty('--turnColor', player.color);
+      b.innerHTML = `
+        <div class="tbBadge">${isHuman ? '🎯 È IL TUO TURNO!' : '⏳ TURNO AVVERSARIO'}</div>
+        <div class="tbMain">
+          <span class="tbIcon">${player.token.icon}</span>
+          <span class="tbName" style="color:${player.color}">${esc(player.name)}${player.bot ? ' <small>(CPU)</small>' : ''}</span>
+          <span class="tbCash">${money(player.data.cash)}</span>
+        </div>
+        <div class="tbSub">${isHuman ? 'Premi «TIRA I DADI 3D» qui sotto per muovere la tua pedina' : 'CPU in azione sul tavolo 3D...'}</div>
+      `;
+    }
+    ctx.onExit(() => document.getElementById('turnBanner3D')?.remove());
+
     // Human management dock between rolls / before ending turn
     async function humanActionDock(player, phaseLabel, primaryLabel) {
       return new Promise(res => {
         const drawDock = () => {
           const card = h('div', 'card');
-          card.style.maxWidth = '640px';
+          card.style.maxWidth = '680px';
+          card.style.border = `2px solid ${player.color}`;
+          card.style.boxShadow = `0 8px 32px rgba(0,0,0,0.8), 0 0 24px ${player.color}44`;
           card.innerHTML = `
-            <div class="meta">
-              <span>${esc(phaseLabel)}</span>
-              <span style="color:${player.color};font-weight:700">${player.token.icon} ${esc(player.name)} · Saldo: ${money(player.data.cash)}</span>
+            <div class="meta" style="font-size:0.95rem">
+              <span style="font-weight:900;color:${player.color};display:flex;align-items:center;gap:6px">
+                <span style="font-size:1.3rem">${player.token.icon}</span>
+                <span>TOCCA A TE, ${esc(player.name).toUpperCase()}!</span>
+              </span>
+              <span style="color:#4ade80;font-weight:800;font-size:1.05rem">Disponibilità: ${money(player.data.cash)}</span>
             </div>
+            <p style="margin:4px 0 10px;font-size:0.82rem;color:#cbd5e1">${esc(phaseLabel)}</p>
           `;
           const row = h('div', 'row');
-          const mainBtn = h('button', 'btn pri', primaryLabel);
+          row.style.gap = '10px';
+          const mainBtn = h('button', 'btn pri bigTurnBtn', primaryLabel);
+          mainBtn.style.cssText = `font-size:1.08rem;font-weight:900;padding:12px 28px;min-height:50px;background:linear-gradient(135deg, ${player.color}, #2563eb);border:2px solid #ffffff;box-shadow:0 0 20px ${player.color}66;`;
           mainBtn.onclick = () => { sfx.click(); res('go'); };
 
           const tokBtn = h('button', 'btn', '🎩 Pedina 3D');
@@ -1431,21 +1538,6 @@ export default {
         drawDock();
       });
     }
-
-    // Handle retire hook
-    ctx.onPlayerRetired = async p => {
-      p.data.bankrupt = true;
-      p.alive = false;
-      ownedBy(boardState, p.id).forEach(i => {
-        boardState.houses[i] = 0;
-        boardState.owners[i] = null;
-        boardState.mortgages.delete(i);
-      });
-      sync3DBoardBuildings();
-      syncTokensInstant();
-      logMsg(`⚐ ${p.name} si è ritirato dal tavolo.`);
-      renderLeftPanel();
-    };
 
     // ---- Main 3D Game Loop ----
     syncScores();
@@ -1475,11 +1567,17 @@ export default {
       }
 
       ctx.setActive(player);
+      updateTurnBanner(player);
+      renderLeftPanel();
       ctx.hud(`<span class="pill">${player.token.icon} Turno di <b style="color:${player.color}">${esc(player.name)}</b> · <b>${money(player.data.cash)}</b></span>`);
       selectInspectSpace(player.data.pos);
       applyCamera(player.data.pos);
 
-      if (!player.bot) await ctx.passDevice(player);
+      if (!player.bot) {
+        sfx.fanfare?.();
+        host.say(`Tocca a te, ${player.name}! Fai la tua mossa sul tabellone!`, { mood: 'happy', to: player });
+        await ctx.passDevice(player);
+      }
 
       let rollAgain = true;
       player.data.doubles = 0;

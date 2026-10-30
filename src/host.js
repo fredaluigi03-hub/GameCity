@@ -90,14 +90,7 @@ export function createHost(ctx, def) {
   tg.onclick = () => { hostOn = !hostOn; try { localStorage.setItem('host_on', hostOn ? '1' : '0'); } catch {} paint(); if (!hostOn) { stop(); box.hidden = true; } };
   paint(); ctx.hudTools?.prepend(tg);
 
-  const BEEP_RE = /\[BEEP\]|c\*\*\*o|p\*\*\*a|m\*\*\*a|str\*\*\*o|cazzo|puttana|merda|stronzo|f\*\*\*uto/gi;
-  const renderBeepHtml = s => s
-    .replace(/\[BEEP\]/gi, '<span class="censorBadge">BEEP!</span>')
-    .replace(/c\*\*\*o|cazzo/gi, '<span class="censorBadge">C***O</span>')
-    .replace(/p\*\*\*a|puttana/gi, '<span class="censorBadge">P***A</span>')
-    .replace(/m\*\*\*a|merda/gi, '<span class="censorBadge">M***A</span>')
-    .replace(/str\*\*\*o|stronzo/gi, '<span class="censorBadge">STR***O</span>')
-    .replace(/f\*\*\*uto/gi, '<span class="censorBadge">F***UTO</span>');
+  const renderBeepHtml = s => s.replace(/\[BEEP\]\s*/gi, '');
 
   // speak text; resolves on end. withBox=false: voice only (host.ask)
   function speak(text, withBox) {
@@ -107,7 +100,6 @@ export function createHost(ctx, def) {
       const fin = () => { if (done) return; done = true; clearTimeout(safety); clearInterval(typer); p.speak(false); if (withBox) { tx.innerHTML = renderBeepHtml(text); hideT = setTimeout(() => { box.hidden = true; }, 1700); } setTimeout(res, withBox ? 220 : 0); };
       cur = fin;
       p.speak(true);
-      if (BEEP_RE.test(text)) setTimeout(() => sfx.censorBeep(0.36), 320);
       if (withBox) {
         box.hidden = false; box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
         let i = 0; tx.innerHTML = '';
@@ -124,7 +116,7 @@ export function createHost(ctx, def) {
       if (canVoice) {
         try { synth.resume?.(); } catch {}
         const voice = voices.length ? pickVoice(V) : null;
-        const spokenClean = text.replace(BEEP_RE, ' ... ');
+        const spokenClean = text.replace(/\[BEEP\]\s*/gi, '');
         const parts = chunks(spokenClean).filter(c => c && c.trim().length > 0);
         if (!parts.length) { fin(); return; }
         parts.forEach((c, k) => {
@@ -314,21 +306,21 @@ export const HOSTS = {
         'Benvenuti al tavolo di Monopoly! Qui si fanno affari sporchi o si finisce al verde!',
         'Signori, i dadi sono caldi e il mercato immobiliare è spietato. Chi sarà il re del tabellone?',
         '{name}, metti mano al portafogli: a Parco della Vittoria non fanno sconti a nessuno!',
-        'Benvenuti! Ricordatevi: chi piange sul canone non ha capito come gira il f***uto [BEEP] mondo del mattone!'
+        'Benvenuti! Ricordatevi: chi piange sul canone non ha capito come gira il fottuto mondo del mattone!'
       ],
       right: [
         'Gran colpo, {name}! Questa proprietà ti farà fare soldi a palate.',
         'Contratto firmato! Altro che mutuo, qui siamo al top!',
         'Ottima mossa! E gli altri rosicano forte!',
-        'Bel colpo, {name}! Hai comprato per un pezzo di pane: che c***o [BEEP] di genio!',
+        'Bel colpo, {name}! Hai comprato per un pezzo di pane: che cazzo di genio!',
         'Incassa il canone e sorridi! Chi ha debiti paga e basta!'
       ],
       wrong: [
         'Ahi ahi ahi! Canone salatissimo! Ti hanno spennato per bene!',
-        'Ma che c***o [BEEP] di tiro! Dritto su una casella nemica con tre case!',
+        'Ma che cazzo di tiro! Dritto su una casella nemica con tre case!',
         'Questa fa male al portafogli! Qualcuno chiami un’ambulanza per il tuo conto!',
-        'Porca p***a [BEEP]! Quell’affitto non lo pagava nemmeno il presidente della banca!',
-        'Sbagliato investimento! Il mercato non ti perdona una m***a [BEEP]!'
+        'Porca puttana! Quell’affitto non lo pagava nemmeno il presidente della banca!',
+        'Sbagliato investimento! Il mercato non ti perdona una merda!'
       ],
       win: [
         'Campione assoluto del Monopoly! Tutti gli altri sono finiti a lavare i piatti!',
@@ -350,12 +342,12 @@ export const HOSTS = {
       ],
       doubles: [
         'Dadi doppi per {name}! Il tavolo è infuocato: lancia ancora!',
-        'Doppio colpo! Che c***o [BEEP] di fortuna sfacciata!',
+        'Doppio colpo! Che cazzo di fortuna sfacciata!',
         'Ancora un lancio per {name}! Ma occhio al terzo doppio che finisci dritto in gabbia!'
       ],
       jail: [
         'Sirene spiegate! {name} finisce dietro le sbarre senza passare dal VIA!',
-        'Doccia fredda per {name}: dritto in gattabuia! Ma che c***o [BEEP] hai combinato?!',
+        'Doccia fredda per {name}: dritto in gattabuia! Ma che cazzo hai combinato?!',
         'Arrestato in diretta nazionale! Guardie, portatelo via con le arance!'
       ],
       go: [
@@ -363,11 +355,11 @@ export const HOSTS = {
         'Passaggio dal VIA! La banca apre la cassa e sorride!'
       ],
       tax: [
-        'Stangata fiscale! Le tasse non perdonano nessuno, porca p***a [BEEP]!',
-        'Prelievo forzoso dal conto di {name}! Che m***a [BEEP] di sfortuna!'
+        'Stangata fiscale! Le tasse non perdonano nessuno, porca puttana!',
+        'Prelievo forzoso dal conto di {name}! Che merda di sfortuna!'
       ],
       build: [
-        'Nuova costruzione! I mattoni costano ma rendono un f***uto [BEEP] patrimonio!',
+        'Nuova costruzione! I mattoni costano ma rendono un fottuto patrimonio!',
         'Case verdi sul terreno! Qui chi ci passa lascia pure le mutande!'
       ],
       outro: [

@@ -35,3 +35,53 @@ test('movement cards preserve Go salary and their rent multipliers',()=>{
   assert.deepEqual(resolveCardMovement(32,{move:0,collectGo:true}),{position:0,collectGo:true,rentMultiplier:1});
   assert.deepEqual(resolveCardMovement(1,{back:3}),{position:38,collectGo:false,rentMultiplier:1});
 });
+
+test('all 16 CHANCE and 16 CHEST cards are well-formed and resolve mechanics correctly', async () => {
+  const { CHANCE, CHEST } = await import('../src/monopoly/data.js');
+  assert.equal(CHANCE.length, 16, 'Must have exactly 16 Chance cards');
+  assert.equal(CHEST.length, 16, 'Must have exactly 16 Community Chest cards');
+
+  // Verify Colombo card
+  const colomboCard = CHANCE.find(c => c.text.includes('Colombo'));
+  assert.ok(colomboCard, 'Card for Largo Colombo must exist');
+  assert.equal(colomboCard.move, 24, 'Largo Colombo tile index is 24');
+
+  const mvFrom7 = resolveCardMovement(7, colomboCard);
+  assert.equal(mvFrom7.position, 24);
+  assert.equal(mvFrom7.collectGo, false);
+
+  const mvFrom36 = resolveCardMovement(36, colomboCard);
+  assert.equal(mvFrom36.position, 24);
+  assert.equal(mvFrom36.collectGo, true);
+
+  // Check every card has valid text and at least one actionable effect
+  [...CHANCE, ...CHEST].forEach((card, idx) => {
+    assert.ok(typeof card.text === 'string' && card.text.length > 5, `Card ${idx} must have text`);
+    const hasAction = card.move !== undefined || card.back !== undefined || card.nearest !== undefined ||
+                      card.cash !== undefined || card.jail !== undefined || card.jailCard !== undefined ||
+                      card.payEach !== undefined || card.collectEach !== undefined || card.repair !== undefined;
+    assert.ok(hasAction, `Card "${card.text}" must have a recognized gameplay action`);
+  });
+});
+
+test('canBuild, canSell, build, and sellBuilding support both (index, owner) and (owner, index) signatures', () => {
+  const s = state();
+  s.owners[1] = s.owners[3] = 0; // Brown group owned by player 0
+
+  // Standard signature (state, index, owner)
+  assert.equal(canBuild(s, 1, 0), true);
+  // Inverted signature (state, owner, index)
+  assert.equal(canBuild(s, 0, 1), true);
+
+  // Build via inverted signature
+  assert.equal(build(s, 0, 1), true);
+  assert.equal(s.houses[1], 1);
+  assert.equal(s.players[0].cash, START_CASH - 50);
+
+  // Check sell with both signatures
+  assert.equal(canSell(s, 1, 0), true);
+  assert.equal(canSell(s, 0, 1), true);
+  assert.equal(sellBuilding(s, 0, 1), 25);
+  assert.equal(s.houses[1], 0);
+  assert.equal(s.players[0].cash, START_CASH - 25);
+});

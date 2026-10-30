@@ -10,29 +10,46 @@ export const ownedBy = (state, owner) => state.owners.map((p, i) => p === owner 
 export const groupOwned = (state, owner, group) => (GROUPS[group] || []).every(i => state.owners[i] === owner);
 export const mortgaged = (state, i) => state.mortgages.has(i);
 
-export function rentDue(state, index, diceTotal, multiplier = 1) {
+export function rentDue(state, index, diceTotal = 7, options = 1) {
   const cell = BOARD[index], owner = state.owners[index];
   if (owner == null || owner === state.current || state.mortgages.has(index)) return 0;
+  const mult = typeof options === 'number' ? options : (options?.railMultiplier || options?.multiplier || 1);
+  const utilMult = typeof options === 'object' && options?.utilityMultiplier ? options.utilityMultiplier : null;
   if (cell.type === 'property') {
     const houses = state.houses[index] || 0;
-    return (houses ? cell.rent[houses] : cell.rent[0] * (groupOwned(state, owner, cell.color) ? 2 : 1)) * multiplier;
+    return (houses ? cell.rent[houses] : cell.rent[0] * (groupOwned(state, owner, cell.color) ? 2 : 1)) * mult;
   }
-  if (cell.type === 'railroad') return ([25,50,100,200].filter((_, i) => ownedBy(state, owner).filter(x => BOARD[x].type === 'railroad').length > i).at(-1) || 25) * multiplier;
+  if (cell.type === 'railroad') {
+    const rCount = ownedBy(state, owner).filter(x => BOARD[x].type === 'railroad').length;
+    const base = [0, 25, 50, 100, 200][Math.min(4, Math.max(1, rCount))] || 25;
+    return base * mult;
+  }
   if (cell.type === 'utility') {
-    const count = ownedBy(state, owner).filter(x => BOARD[x].type === 'utility').length;
-    return diceTotal * (multiplier === 10 ? 10 : count === 2 ? 10 : 4);
+    const uCount = ownedBy(state, owner).filter(x => BOARD[x].type === 'utility').length;
+    const factor = utilMult || (uCount === 2 ? 10 : 4);
+    return diceTotal * factor;
   }
   return 0;
 }
 
-export function canBuild(state, index, owner = state.current) {
+function resolveIndexAndOwner(state, a, b) {
+  if (b === undefined) return { index: a, owner: state.current };
+  if (groupFor(b) && state.owners[b] === a) return { index: b, owner: a };
+  if (groupFor(a) && state.owners[a] === b) return { index: a, owner: b };
+  if (groupFor(b)) return { index: b, owner: a };
+  return { index: a, owner: b };
+}
+
+export function canBuild(state, arg1, arg2) {
+  const { index, owner } = resolveIndexAndOwner(state, arg1, arg2);
   const cell = BOARD[index], group = groupFor(index);
   if (!group || state.owners[index] !== owner || !groupOwned(state, owner, group) || GROUPS[group].some(i => state.mortgages.has(i))) return false;
   const ids = GROUPS[group], levels = ids.map(i => state.houses[i] || 0), level = state.houses[index] || 0;
   const pCash = state.players[owner]?.cash ?? state.players[owner]?.data?.cash ?? 0;
   return level < 5 && Math.min(...levels) === level && (level < 4 ? state.bank.houses > 0 : state.bank.hotels > 0) && pCash >= (cell.house || cell.houseCost || 50);
 }
-export function canSell(state, index, owner = state.current) {
+export function canSell(state, arg1, arg2) {
+  const { index, owner } = resolveIndexAndOwner(state, arg1, arg2);
   const group = groupFor(index); if (!group || state.owners[index] !== owner) return false;
   const level = state.houses[index] || 0, ids = GROUPS[group];
   return level > 0 && Math.max(...ids.map(i => state.houses[i] || 0)) === level;
@@ -72,18 +89,29 @@ export function resolveCardMovement(position, card) {
   return null;
 }
 
-export function build(state, index, owner = state.current) {
+export function build(state, arg1, arg2) {
+  const { index, owner } = resolveIndexAndOwner(state, arg1, arg2);
   if (!canBuild(state, index, owner)) return false;
   const c = BOARD[index], level = state.houses[index] || 0;
-  state.players[owner].cash -= c.house; state.houses[index] = level + 1;
+  const cost = c.house || c.houseCost || 50;
+  const p = state.players[owner];
+  if (p && p.cash !== undefined) {
+    p.cash -= cost;
+  }
+  state.houses[index] = level + 1;
   if (level === 4) { state.bank.houses += 4; state.bank.hotels--; }
   else state.bank.houses--;
   return true;
 }
-export function sellBuilding(state, index, owner = state.current) {
+export function sellBuilding(state, arg1, arg2) {
+  const { index, owner } = resolveIndexAndOwner(state, arg1, arg2);
   if (!canSell(state, index, owner)) return 0;
-  const c = BOARD[index], level = state.houses[index], value = Math.floor(c.house / 2);
-  state.houses[index] = level - 1; state.players[owner].cash += value;
+  const c = BOARD[index], level = state.houses[index], value = Math.floor((c.house || c.houseCost || 50) / 2);
+  const p = state.players[owner];
+  if (p && p.cash !== undefined) {
+    p.cash += value;
+  }
+  state.houses[index] = level - 1;
   if (level === 5) { state.bank.hotels++; state.bank.houses -= 4; }
   else state.bank.houses++;
   return value;
